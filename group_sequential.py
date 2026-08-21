@@ -16,6 +16,7 @@ random walk and binary-searching the scalar c so overall crossing = alpha.
 
 Reference: Lan & DeMets (1983); O'Brien & Fleming (1979); Pocock (1977).
 """
+
 import warnings
 
 import numpy as np
@@ -35,8 +36,8 @@ def simulate_paths(n_paths, K, drift=0.0, seed=0):
     rng = np.random.default_rng(seed)
     t = np.arange(1, K + 1) / K
     steps = rng.normal(0, np.sqrt(1 / K), size=(n_paths, K))
-    S = np.cumsum(steps, axis=1)            # score, Var(S_k) = k/K = t_k
-    Z = S / np.sqrt(t)                      # standardized z, Var(Z_k) = 1
+    S = np.cumsum(steps, axis=1)  # score, Var(S_k) = k/K = t_k
+    Z = S / np.sqrt(t)  # standardized z, Var(Z_k) = 1
     if drift != 0.0:
         Z = Z + drift * np.sqrt(t)
     return Z
@@ -82,8 +83,8 @@ def main():
 
     print(f"[K={K} interim looks, target alpha={alpha}]")
     print(f"  {'design':<14} {'c':>7}  boundaries (z) at each look")
-    print(f"  {'Pocock':<14} {c_pocock:>7.3f}  {[f'{v:.2f}' for v in c_pocock*b_pocock]}")
-    print(f"  {'OBF':<14} {c_obf:>7.3f}  {[f'{v:.2f}' for v in c_obf*b_obf]}")
+    print(f"  {'Pocock':<14} {c_pocock:>7.3f}  {[f'{v:.2f}' for v in c_pocock * b_pocock]}")
+    print(f"  {'OBF':<14} {c_obf:>7.3f}  {[f'{v:.2f}' for v in c_obf * b_obf]}")
     print(f"  {'naive 1.96':<14} {1.96:>7.3f}  {[f'{v:.2f}' for v in b_naive]}")
     print()
 
@@ -92,21 +93,26 @@ def main():
     print("[Type I error under null]")
     print(f"  {'design':<14} {'empirical alpha':>16}")
     print(f"  {'naive peeking':<14} {crossing_rate(null_paths, b_naive):>16.3f}  <- inflated")
-    print(f"  {'Pocock':<14} {crossing_rate(null_paths, c_pocock*b_pocock):>16.3f}")
-    print(f"  {'OBF':<14} {crossing_rate(null_paths, c_obf*b_obf):>16.3f}")
+    print(f"  {'Pocock':<14} {crossing_rate(null_paths, c_pocock * b_pocock):>16.3f}")
+    print(f"  {'OBF':<14} {crossing_rate(null_paths, c_obf * b_obf):>16.3f}")
     print()
 
     # Power under a fixed alternative (full-info effect = 2.8 SD at final look)
     drift = 2.8
     alt_paths = simulate_paths(n_paths, K, drift=drift, seed=123)
     stop_look = {}
-    for name, bounds in [("Pocock", c_pocock * b_pocock), ("OBF", c_obf * b_obf),
-                         ("naive", b_naive)]:
+    for name, bounds in [
+        ("Pocock", c_pocock * b_pocock),
+        ("OBF", c_obf * b_obf),
+        ("naive", b_naive),
+    ]:
         crossed = np.abs(alt_paths) > bounds
         any_cross = crossed.any(axis=1)
         first = np.argmax(crossed, axis=1) + 1
-        stop_look[name] = (float(any_cross.mean()),
-                          float(first[any_cross].mean()) if any_cross.any() else float('nan'))
+        stop_look[name] = (
+            float(any_cross.mean()),
+            float(first[any_cross].mean()) if any_cross.any() else float("nan"),
+        )
     print(f"[Power & avg stopping look, full-info effect = {drift}]")
     print(f"  {'design':<14} {'power':>8} {'avg stop look':>14}")
     for name, (pw, al) in stop_look.items():

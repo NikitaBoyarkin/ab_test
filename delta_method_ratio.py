@@ -15,6 +15,7 @@ sqrt(Var(R_A) + Var(R_B)), where per group:
 Reference: Deng, Knoblich, Lu (2018), "Applying the Delta Method in Metrics
 Experiments".
 """
+
 import warnings
 
 import numpy as np
@@ -49,8 +50,14 @@ def delta_method_test(x_a, y_a, x_b, y_b, alpha: float = 0.05) -> dict:
     p = 2 * (1 - stats.norm.cdf(abs(z)))
     ci = (diff - CONF_Z * se, diff + CONF_Z * se)
     return {
-        "ratio_a": r_a, "ratio_b": r_b, "diff": diff, "se": se,
-        "z": z, "p_value": p, "ci_low": ci[0], "ci_high": ci[1],
+        "ratio_a": r_a,
+        "ratio_b": r_b,
+        "diff": diff,
+        "se": se,
+        "z": z,
+        "p_value": p,
+        "ci_low": ci[0],
+        "ci_high": ci[1],
         "significant": p < alpha,
     }
 
@@ -63,8 +70,12 @@ def naive_per_unit_ratio_test(x_a, y_a, x_b, y_b, alpha: float = 0.05) -> dict:
     diff = rb.mean() - ra.mean()
     se = np.sqrt(np.var(rb, ddof=1) / len(rb) + np.var(ra, ddof=1) / len(ra))
     return {
-        "ratio_a": ra.mean(), "ratio_b": rb.mean(), "diff": diff,
-        "se": se, "p_value": float(res.pvalue), "significant": res.pvalue < alpha,
+        "ratio_a": ra.mean(),
+        "ratio_b": rb.mean(),
+        "diff": diff,
+        "se": se,
+        "p_value": float(res.pvalue),
+        "significant": res.pvalue < alpha,
     }
 
 
@@ -93,9 +104,11 @@ def main():
         aa_reject += delta_method_test(x_a, y_a, x_b, y_b)["significant"]
         naive_reject += naive_per_unit_ratio_test(x_a, y_a, x_b, y_b)["significant"]
     print(f"[A/A calibration, {n_sims} sims, true lift = 0]")
-    print(f"  delta method rejection rate: {aa_reject/n_sims*100:.1f}%  (expect ~5%)")
-    print(f"  naive per-unit t-test reject:  {naive_reject/n_sims*100:.1f}%  "
-          "(inflated when impressions vary)")
+    print(f"  delta method rejection rate: {aa_reject / n_sims * 100:.1f}%  (expect ~5%)")
+    print(
+        f"  naive per-unit t-test reject:  {naive_reject / n_sims * 100:.1f}%  "
+        "(inflated when impressions vary)"
+    )
     print()
 
     # A/B: +10% relative lift on CTR
@@ -104,12 +117,18 @@ def main():
     d = delta_method_test(x_a, y_a, x_b, y_b)
     n = naive_per_unit_ratio_test(x_a, y_a, x_b, y_b)
     print("[A/B, +10% relative lift on CTR]")
-    print(f"  {'method':<22} {'CTR_A':>8} {'CTR_B':>8} {'diff':>10} {'SE':>10} "
-          f"{'p_value':>10} {'sig':>5}")
-    print(f"  {'delta (correct)':<22} {d['ratio_a']:>8.4f} {d['ratio_b']:>8.4f} "
-          f"{d['diff']:>10.5f} {d['se']:>10.5f} {d['p_value']:>10.4f} {str(d['significant']):>5}")
-    print(f"  {'naive per-unit':<22} {n['ratio_a']:>8.4f} {n['ratio_b']:>8.4f} "
-          f"{n['diff']:>10.5f} {n['se']:>10.5f} {n['p_value']:>10.4f} {str(n['significant']):>5}")
+    print(
+        f"  {'method':<22} {'CTR_A':>8} {'CTR_B':>8} {'diff':>10} {'SE':>10} "
+        f"{'p_value':>10} {'sig':>5}"
+    )
+    print(
+        f"  {'delta (correct)':<22} {d['ratio_a']:>8.4f} {d['ratio_b']:>8.4f} "
+        f"{d['diff']:>10.5f} {d['se']:>10.5f} {d['p_value']:>10.4f} {str(d['significant']):>5}"
+    )
+    print(
+        f"  {'naive per-unit':<22} {n['ratio_a']:>8.4f} {n['ratio_b']:>8.4f} "
+        f"{n['diff']:>10.5f} {n['se']:>10.5f} {n['p_value']:>10.4f} {str(n['significant']):>5}"
+    )
     print(f"\n  delta-method 95% CI for diff: [{d['ci_low']:.5f}, {d['ci_high']:.5f}]")
 
 

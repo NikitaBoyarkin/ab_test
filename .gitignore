@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Generated artifacts
+plots/
+outputs/
+*.png
+*.pdf
+
+# OS
+.DS_Store

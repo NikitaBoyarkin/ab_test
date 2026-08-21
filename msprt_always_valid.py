@@ -24,6 +24,7 @@ Pick rho near the smallest effect you care about (the MDE in SD units).
 Reference: Johari, Pekelis, Walsh (2015), "Always Valid Inference: Bringing
 Sequential Analysis to A/B Testing" (this is Optimizely's Stats Engine).
 """
+
 import warnings
 
 import numpy as np
@@ -57,7 +58,7 @@ def _median_hit(hits, n_cap):
 
 def main():
     print("=== mSPRT / Always-Valid p-values ===\n")
-    rho = 0.5      # prior SD of the effect (in obs-SD units)
+    rho = 0.5  # prior SD of the effect (in obs-SD units)
     alpha = 0.05
     n = 500
     n_streams = 2000
@@ -84,8 +85,10 @@ def main():
 
     print(f"[Null calibration, {n_streams} streams, peek over t=1..{n}, alpha={alpha}]")
     print(f"  {'method':<16} {'P(ever p<=alpha)':>18}")
-    print(f"  {'always-valid':<16} {av_false/n_streams*100:>17.1f}%   (expect ~{alpha*100:.0f}%)")
-    print(f"  {'naive z-test':<16} {naive_false/n_streams*100:>17.1f}%   (inflated by peeking)")
+    print(
+        f"  {'always-valid':<16} {av_false / n_streams * 100:>17.1f}%   (expect ~{alpha * 100:.0f}%)"
+    )
+    print(f"  {'naive z-test':<16} {naive_false / n_streams * 100:>17.1f}%   (inflated by peeking)")
     print()
 
     # --- Alternative: time to detection ---
@@ -107,10 +110,11 @@ def main():
 
     print(f"[Alternative, effect={mu} SD, capped at n={n}]")
     print(f"  {'method':<16} {'detect rate':>12} {'median n to detect':>20}")
-    print(f"  {'always-valid':<16} {np.mean(av_t<n)*100:>11.1f}% "
-          f"{_median_hit(av_t, n):>19.0f}")
-    print(f"  {'naive z-test':<16} {np.mean(naive_t<n)*100:>11.1f}% "
-          f"{_median_hit(naive_t, n):>19.0f}")
+    print(f"  {'always-valid':<16} {np.mean(av_t < n) * 100:>11.1f}% {_median_hit(av_t, n):>19.0f}")
+    print(
+        f"  {'naive z-test':<16} {np.mean(naive_t < n) * 100:>11.1f}% "
+        f"{_median_hit(naive_t, n):>19.0f}"
+    )
     print("  naive detects earlier, but ~the extra detections are the false positives")
     print("  seen in the null block above. always-valid buys validity, not free power.")
 

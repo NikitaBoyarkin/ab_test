@@ -19,6 +19,7 @@ rejects depends on whether treatment varies *within* a cluster:
 Carryover (treatment in period p leaks into p+1) biases the point estimate; SE
 cannot fix it -> use a washout period or drop the first period of each cluster.
 """
+
 import warnings
 
 import numpy as np
@@ -29,14 +30,13 @@ warnings.filterwarnings("ignore")
 
 
 # ---- 1. cluster-randomized (treatment constant within cluster) -------------
-def simulate_cluster_randomized(n_clusters=30, n_periods=14, effect=0.0,
-                                cluster_sd=1.0, seed=0):
+def simulate_cluster_randomized(n_clusters=30, n_periods=14, effect=0.0, cluster_sd=1.0, seed=0):
     rng = np.random.default_rng(seed)
     cluster_base = rng.normal(0, cluster_sd, n_clusters)
     period_eff = rng.normal(0, 0.3, n_periods)
     rows = []
     for c in range(n_clusters):
-        treat = int(rng.random() < 0.5)            # one assignment per cluster
+        treat = int(rng.random() < 0.5)  # one assignment per cluster
         for p in range(n_periods):
             y = cluster_base[c] + period_eff[p] + effect * treat + rng.normal(0, 1.0)
             rows.append({"cluster": c, "period": p, "treat": treat, "y": y})
@@ -50,13 +50,15 @@ def cr_naive(df):
 
 def cr_cluster_robust(df):
     res = smf.ols("y ~ treat + C(period)", data=df).fit(
-        cov_type="cluster", cov_kwds={"groups": df["cluster"]})
+        cov_type="cluster", cov_kwds={"groups": df["cluster"]}
+    )
     return res.params["treat"], res.bse["treat"], res.pvalues["treat"]
 
 
 # ---- 2. switchback (treatment switches over time within a cluster) ----------
-def simulate_switchback(n_clusters=30, n_periods=14, effect=0.0, ar=0.6,
-                        carryover=0.0, block_size=1, seed=0):
+def simulate_switchback(
+    n_clusters=30, n_periods=14, effect=0.0, ar=0.6, carryover=0.0, block_size=1, seed=0
+):
     rng = np.random.default_rng(seed)
     period_eff = rng.normal(0, 0.3, n_periods)
     # block_size>1 makes treatment persist across consecutive periods, so the
@@ -87,7 +89,8 @@ def sw_naive(df):
 
 def sw_cluster_robust(df):
     res = smf.ols("y ~ treat + C(period)", data=df).fit(
-        cov_type="cluster", cov_kwds={"groups": df["cluster"]})
+        cov_type="cluster", cov_kwds={"groups": df["cluster"]}
+    )
     return res.params["treat"], res.bse["treat"], res.pvalues["treat"]
 
 
@@ -115,10 +118,11 @@ def main():
     print(f"  {'cluster-robust':<26} {ec:>9.3f} {sec:>8.3f}")
     print(f"  naive SE ({sen:.3f}) << cluster-robust ({sec:.3f}): effective n is")
     print("  n_clusters, not n_clusters x n_periods -> naive over-rejects.")
-    rn, rc = _calibrate(simulate_cluster_randomized, cr_naive, cr_cluster_robust,
-                        effect=0.0)
-    print(f"  null reject rate: naive {rn*100:.1f}% (inflated) | "
-          f"cluster-robust {rc*100:.1f}% (~5% expected)\n")
+    rn, rc = _calibrate(simulate_cluster_randomized, cr_naive, cr_cluster_robust, effect=0.0)
+    print(
+        f"  null reject rate: naive {rn * 100:.1f}% (inflated) | "
+        f"cluster-robust {rc * 100:.1f}% (~5% expected)\n"
+    )
 
     # ---- Design 2: switchback ----
     df = simulate_switchback(effect=0.30, seed=1)
@@ -132,8 +136,10 @@ def main():
     print("  correlation cancels in the contrast, so naive is conservative;")
     print("  cluster-robust recovers the smaller correct SE -> more power.")
     rn, rc = _calibrate(simulate_switchback, sw_naive, sw_cluster_robust, effect=0.0)
-    print(f"  null reject rate: naive {rn*100:.1f}% (conservative) | "
-          f"cluster-robust {rc*100:.1f}% (~5% expected)\n")
+    print(
+        f"  null reject rate: naive {rn * 100:.1f}% (conservative) | "
+        f"cluster-robust {rc * 100:.1f}% (~5% expected)\n"
+    )
 
     # ---- Carryover bias ----
     print("[3] Carryover (prior period's treatment leaks into this period's outcome)")
@@ -141,8 +147,7 @@ def main():
     for carry in (0.0, 0.2, 0.5):
         ests = []
         for s in range(200):
-            d = simulate_switchback(effect=0.0, carryover=carry,
-                                     block_size=2, seed=s)
+            d = simulate_switchback(effect=0.0, carryover=carry, block_size=2, seed=s)
             est, _, _ = sw_cluster_robust(d)
             ests.append(est)
         print(f"  {carry:<12.1f} {np.mean(ests):>11.3f} {0.0:>11}")

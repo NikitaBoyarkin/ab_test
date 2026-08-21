@@ -17,6 +17,7 @@ At each interim (n users per group):
 `tau` is the prior SD of the effect D in natural ratio-difference units — set it
 near the MDE you care about (e.g. for CTR, the smallest lift you'd act on).
 """
+
 import warnings
 
 import numpy as np
@@ -41,24 +42,32 @@ def ratio_interim(x_a, y_a, x_b, y_b):
     D = R_b - R_a
     V = ratio_delta_var_perunit(x_a, y_a) + ratio_delta_var_perunit(x_b, y_b)
     n = len(x_a)
-    I = n / V
-    z = D * np.sqrt(I)
-    return {"D": float(D), "z": float(z), "I": float(I), "R_a": float(R_a),
-            "R_b": float(R_b), "se": float(np.sqrt(V / n))}
+    info = n / V
+    z = D * np.sqrt(info)
+    return {
+        "D": float(D),
+        "z": float(z),
+        "I": float(info),
+        "R_a": float(R_a),
+        "R_b": float(R_b),
+        "se": float(np.sqrt(V / n)),
+    }
 
 
-def msprt_ratio(D, z, I, tau):
-    lam = (1 + tau**2 * I) ** (-0.5) * np.exp(tau**2 * z**2 * I / (2 * (1 + tau**2 * I)))
+def msprt_ratio(D, z, info, tau):
+    lam = (1 + tau**2 * info) ** (-0.5) * np.exp(tau**2 * z**2 * info / (2 * (1 + tau**2 * info)))
     return float(lam), float(1.0 / lam)
 
 
 def gen_batch(n, base_rate, rel_lift, seed):
     """One batch of per-user (impressions, clicks) per group, heterogeneous X."""
     rng = np.random.default_rng(seed)
+
     def group(rate):
         x = rng.lognormal(mean=3.5, sigma=0.6, size=n).astype(int) + 1
         y = rng.binomial(x, rate)
         return x, y
+
     a = group(base_rate)
     b = group(base_rate * (1 + rel_lift))
     return a, b
@@ -69,8 +78,7 @@ def run_stream(n_batches, batch_size, base_rate, rel_lift, tau, seed=0):
     xa_all = ya_all = xb_all = yb_all = np.array([], dtype=float)
     records = []
     for k in range(1, n_batches + 1):
-        (xa, ya), (xb, yb) = gen_batch(batch_size, base_rate, rel_lift,
-                                      seed=seed * 1000 + k)
+        (xa, ya), (xb, yb) = gen_batch(batch_size, base_rate, rel_lift, seed=seed * 1000 + k)
         xa_all = np.concatenate([xa_all, xa])
         ya_all = np.concatenate([ya_all, ya])
         xb_all = np.concatenate([xb_all, xb])
@@ -84,12 +92,13 @@ def run_stream(n_batches, batch_size, base_rate, rel_lift, tau, seed=0):
 
 def _two_sided_p(z):
     from scipy import stats
+
     return float(2 * (1 - stats.norm.cdf(abs(z))))
 
 
 def main():
     print("=== Sequential (Always-Valid) Testing for Ratio Metrics ===\n")
-    tau = 0.01   # prior SD of the lift in natural CTR-difference units (MDE-ish)
+    tau = 0.01  # prior SD of the lift in natural CTR-difference units (MDE-ish)
     alpha = 0.05
     n_sims = 400
     n_batches = 20
@@ -106,8 +115,10 @@ def main():
             naive_false += 1
     print(f"[A/A calibration, {n_sims} streams, {n_batches} interims, alpha={alpha}]")
     print(f"  {'method':<16} {'P(ever p<=alpha)':>18}")
-    print(f"  {'always-valid':<16} {av_false/n_sims*100:>17.1f}%   (expect ~{alpha*100:.0f}%)")
-    print(f"  {'naive delta-z':<16} {naive_false/n_sims*100:>17.1f}%   (inflated by peeking)")
+    print(
+        f"  {'always-valid':<16} {av_false / n_sims * 100:>17.1f}%   (expect ~{alpha * 100:.0f}%)"
+    )
+    print(f"  {'naive delta-z':<16} {naive_false / n_sims * 100:>17.1f}%   (inflated by peeking)")
     print()
 
     # --- Alternative: +20% relative lift, time to detection ---
@@ -115,18 +126,16 @@ def main():
     av_detect = 0
     av_first = []
     for s in range(n_sims):
-        recs = run_stream(n_batches, batch_size, base_rate, rel_lift=lift, tau=tau,
-                          seed=10_000 + s)
-        p_av = [r["p_av"] for r in recs]
+        recs = run_stream(n_batches, batch_size, base_rate, rel_lift=lift, tau=tau, seed=10_000 + s)
         first = next((r["n"] for r in recs if r["p_av"] <= alpha), None)
         if first is not None:
             av_detect += 1
             av_first.append(first)
-    print(f"[A/B, +{int(lift*100)}% relative lift on CTR]")
-    print(f"  always-valid detects in {av_detect/n_sims*100:.1f}% of streams")
+    print(f"[A/B, +{int(lift * 100)}% relative lift on CTR]")
+    print(f"  always-valid detects in {av_detect / n_sims * 100:.1f}% of streams")
     if av_first:
         print(f"  median users/group at detection: {int(np.median(av_first))}")
-    print(f"  (with batch_size={batch_size}, max n = {n_batches*batch_size}/group)")
+    print(f"  (with batch_size={batch_size}, max n = {n_batches * batch_size}/group)")
 
 
 if __name__ == "__main__":

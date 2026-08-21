@@ -11,6 +11,7 @@ on X and test on the residual. Variance drops by ~(1 - rho^2).
 Reference: Deng, Xu, Kohavi, Walker (2013), "Improving the Sensitivity of
 Online Controlled Experiments by Utilizing Pre-Experiment Data".
 """
+
 import warnings
 
 import numpy as np
@@ -50,9 +51,14 @@ def t_test(a, b) -> dict:
     t, p = stats.ttest_ind(a, b, equal_var=False)
     diff = b.mean() - a.mean()
     se = np.sqrt(np.var(a, ddof=1) / len(a) + np.var(b, ddof=1) / len(b))
-    return {"diff": diff, "se": se, "p_value": float(p),
-            "ci_half": stats.norm.ppf(0.975) * se,
-            "var_a": np.var(a, ddof=1), "var_b": np.var(b, ddof=1)}
+    return {
+        "diff": diff,
+        "se": se,
+        "p_value": float(p),
+        "ci_half": stats.norm.ppf(0.975) * se,
+        "var_a": np.var(a, ddof=1),
+        "var_b": np.var(b, ddof=1),
+    }
 
 
 def main():
@@ -70,9 +76,15 @@ def main():
     xy_corr = float(np.corrcoef(np.concatenate([x_a, x_b]), np.concatenate([y_a, y_b]))[0, 1])
     print("[Single A/B, effect=0.05, rho=0.6]")
     print(f"  {'method':<14} {'diff':>8} {'SE':>8} {'95% CI half-width':>20} {'p_value':>10}")
-    print(f"  {'naive':<14} {pre['diff']:>8.4f} {pre['se']:>8.4f} {pre['ci_half']:>20.4f} {pre['p_value']:>10.4f}")
-    print(f"  {'CUPED':<14} {post['diff']:>8.4f} {post['se']:>8.4f} {post['ci_half']:>20.4f} {post['p_value']:>10.4f}")
-    print(f"  variance reduction: {var_reduction*100:.1f}%  (theory = corr(X,Y)^2 = {xy_corr**2*100:.1f}%, corr(X,Y)={xy_corr:.2f})")
+    print(
+        f"  {'naive':<14} {pre['diff']:>8.4f} {pre['se']:>8.4f} {pre['ci_half']:>20.4f} {pre['p_value']:>10.4f}"
+    )
+    print(
+        f"  {'CUPED':<14} {post['diff']:>8.4f} {post['se']:>8.4f} {post['ci_half']:>20.4f} {post['p_value']:>10.4f}"
+    )
+    print(
+        f"  variance reduction: {var_reduction * 100:.1f}%  (theory = corr(X,Y)^2 = {xy_corr**2 * 100:.1f}%, corr(X,Y)={xy_corr:.2f})"
+    )
     print()
 
     def trial(effect, seed, use_cuped):
@@ -94,8 +106,12 @@ def main():
         pow_cuped += trial(0.03, s, True) < alpha
     print(f"[Calibration, {n_sims} sims, rho=0.6]")
     print(f"  {'metric':<22} {'naive':>8} {'CUPED':>8}")
-    print(f"  {'Type I error':<22} {t1_naive/n_sims*100:>7.1f}% {t1_cuped/n_sims*100:>7.1f}%")
-    print(f"  {'power (effect=0.03)':<22} {pow_naive/n_sims*100:>7.1f}% {pow_cuped/n_sims*100:>7.1f}%")
+    print(
+        f"  {'Type I error':<22} {t1_naive / n_sims * 100:>7.1f}% {t1_cuped / n_sims * 100:>7.1f}%"
+    )
+    print(
+        f"  {'power (effect=0.03)':<22} {pow_naive / n_sims * 100:>7.1f}% {pow_cuped / n_sims * 100:>7.1f}%"
+    )
     print("  CUPED keeps Type I calibrated and lifts power at the same sample size.")
 
 
