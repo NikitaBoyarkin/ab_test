@@ -12,7 +12,7 @@ each module simulates the pipeline end-to-end and reports the empirical rates.
 
 ```bash
 uv sync --all-groups          # install deps + dev tools
-uv run python srm_test.py     # run a single module's demo
+uv run python scripts/srm_test.py   # run a single module's demo
 uv run pytest                 # run the calibration test suite
 uv run ruff check .           # lint
 uv run python scripts/run_full_pipeline.py   # end-to-end demo -> outputs/report.md
@@ -24,21 +24,21 @@ Requires Python >= 3.11. Managed with [uv](https://docs.astral.sh/uv/).
 
 | Module | Method | What the demo shows | Reference |
 |---|---|---|---|
-| `srm_test.py` | Sample Ratio Mismatch (χ²) | catch bucketing/traffic bugs before any downstream test | LukSyen (2019) |
-| `sample_size.py` | Fixed-horizon sizing & power | n/arm for proportions and means | standard two-sample formulas |
-| `delta_method_ratio.py` | Ratio metrics (CTR, RPC) | correct SE for `ΣY/ΣX`; naive per-unit t-test is biased | Deng, Knoblich, Lu (2018) |
-| `cuped.py` | Variance reduction | SE shrinks by ~corr(X,Y)² using pre-period data | Deng et al. (2013) |
-| `group_sequential.py` | Alpha-spending boundaries | Pocock/OBF control Type I while naive peeking inflates it | Lan & DeMets (1983) |
-| `msprt_always_valid.py` | Always-valid p-values | mSPRT lets you peek and stop any time, validly | Johari, Pekelis, Walsh (2015) |
-| `sequential_ratio.py` | Sequential ratio metrics | delta-method + mSPRT for CTR, monitored continuously | combines the two above |
-| `sequential_ab_testing.py` | Evan Miller's sequential rule | reproduce the size table, validate Type I/power, quantify sample savings | Evan Miller |
-| `bayesian_ab_test.py` | Analytic Bayesian A/B | Beta-Binomial / Normal-Normal, P(B>A), expected loss, ROPE | conjugate posteriors |
-| `bootstrap_ci.py` | Bootstrap CIs | percentile & BCa for skewed metrics and median/quantiles | Efron (1987) |
-| `heterogeneous_treatment_effects.py` | HTE by segment | interaction model reveals Simpson's-paradox-like cancellation | OLS with interactions |
-| `multiple_comparisons.py` | Multiple-testing correction | Bonferroni (FWER) vs Benjamini-Hochberg (FDR) | Benjamini & Hochberg (1995) |
-| `novelty_primacy.py` | Time-varying effects | treat×day interaction detects novelty decay / primacy growth | — |
-| `switchback.py` | Cluster & switchback designs | cluster-robust SE; naive over-/under-rejects; carryover bias | cluster-robust variance |
-| `test_simulator.py` | Generic test calibration | plug any DGP + test → empirical Type I and power curve | — |
+| `scripts/srm_test.py` | Sample Ratio Mismatch (χ²) | catch bucketing/traffic bugs before any downstream test | LukSyen (2019) |
+| `scripts/sample_size.py` | Fixed-horizon sizing & power | n/arm for proportions and means | standard two-sample formulas |
+| `scripts/delta_method_ratio.py` | Ratio metrics (CTR, RPC) | correct SE for `ΣY/ΣX`; naive per-unit t-test is biased | Deng, Knoblich, Lu (2018) |
+| `scripts/cuped.py` | Variance reduction | SE shrinks by ~corr(X,Y)² using pre-period data | Deng et al. (2013) |
+| `scripts/group_sequential.py` | Alpha-spending boundaries | Pocock/OBF control Type I while naive peeking inflates it | Lan & DeMets (1983) |
+| `scripts/msprt_always_valid.py` | Always-valid p-values | mSPRT lets you peek and stop any time, validly | Johari, Pekelis, Walsh (2015) |
+| `scripts/sequential_ratio.py` | Sequential ratio metrics | delta-method + mSPRT for CTR, monitored continuously | combines the two above |
+| `scripts/sequential_ab_testing.py` | Evan Miller's sequential rule | reproduce the size table, validate Type I/power, quantify sample savings | Evan Miller |
+| `scripts/bayesian_ab_test.py` | Analytic Bayesian A/B | Beta-Binomial / Normal-Normal, P(B>A), expected loss, ROPE | conjugate posteriors |
+| `scripts/bootstrap_ci.py` | Bootstrap CIs | percentile & BCa for skewed metrics and median/quantiles | Efron (1987) |
+| `scripts/heterogeneous_treatment_effects.py` | HTE by segment | interaction model reveals Simpson's-paradox-like cancellation | OLS with interactions |
+| `scripts/multiple_comparisons.py` | Multiple-testing correction | Bonferroni (FWER) vs Benjamini-Hochberg (FDR) | Benjamini & Hochberg (1995) |
+| `scripts/novelty_primacy.py` | Time-varying effects | treat×day interaction detects novelty decay / primacy growth | — |
+| `scripts/switchback.py` | Cluster & switchback designs | cluster-robust SE; naive over-/under-rejects; carryover bias | cluster-robust variance |
+| `scripts/test_simulator.py` | Generic test calibration | plug any DGP + test → empirical Type I and power curve | — |
 
 ## End-to-end pipeline
 
@@ -62,8 +62,7 @@ push.
 ## Layout
 
 ```
-*.py                method modules (one topic each)
-scripts/            end-to-end pipeline
+scripts/            method modules (one topic each) + end-to-end pipeline
 tests/              calibration test suite
 plots/  outputs/    generated artifacts (gitignored)
 ```
