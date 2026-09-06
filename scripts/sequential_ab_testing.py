@@ -29,7 +29,6 @@ from plotnine import (
     geom_vline,
     ggplot,
 )
-
 from sample_size import two_proportion
 
 PLOTS_DIR = Path(__file__).resolve().parent / "plots"
