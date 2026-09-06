@@ -27,7 +27,10 @@ Requires Python >= 3.11. Managed with [uv](https://docs.astral.sh/uv/).
 | `scripts/srm_test.py` | Sample Ratio Mismatch (χ²) | catch bucketing/traffic bugs before any downstream test | LukSyen (2019) |
 | `scripts/sample_size.py` | Fixed-horizon sizing & power | n/arm for proportions and means | standard two-sample formulas |
 | `scripts/delta_method_ratio.py` | Ratio metrics (CTR, RPC) | correct SE for `ΣY/ΣX`; naive per-unit t-test is biased | Deng, Knoblich, Lu (2018) |
+| `scripts/ratio_cuped.py` | CUPED for ratio metrics | linearize `Z = Y − R·X`, CUPED on Z, delta-method scale; SE shrinks further | Deng et al. (2013); Deng et al. (2018) |
 | `scripts/cuped.py` | Variance reduction | SE shrinks by ~corr(X,Y)² using pre-period data | Deng et al. (2013) |
+| `scripts/cupac.py` | Model-based CUPED (CUPAC) | OLS on all pre-period features; variance reduction ≈ model R² | Poyarkov et al. (2016) |
+| `scripts/post_stratification.py` | Post-stratified ATE | weights within-stratum diffs by population share; corrects imbalance bias, cuts variance | Miratrix, Sekhon, Yu (2013) |
 | `scripts/group_sequential.py` | Alpha-spending boundaries | Pocock/OBF control Type I while naive peeking inflates it | Lan & DeMets (1983) |
 | `scripts/msprt_always_valid.py` | Always-valid p-values | mSPRT lets you peek and stop any time, validly | Johari, Pekelis, Walsh (2015) |
 | `scripts/sequential_ratio.py` | Sequential ratio metrics | delta-method + mSPRT for CTR, monitored continuously | combines the two above |
