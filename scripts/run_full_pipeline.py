@@ -101,15 +101,41 @@ def _two_sided_p(z):
     return float(2 * (1 - stats.norm.cdf(abs(z))))
 
 
-def main():
-    print("=== End-to-end A/B pipeline (synthetic data) ===\n")
-    df = generate_data()
+def run_pipeline(df):
+    """Run the full flow on an experiment DataFrame; returns the results dict.
 
-    print("[1] SRM check (expected 50/50 split)")
+    Steps: SRM check -> CUPED variance reduction -> delta-method CTR ->
+    per-segment ATE with BH correction -> novelty check.
+    """
     n_a = int((df.treat == 0).sum())
     n_b = int((df.treat == 1).sum())
     srm = srm_test.srm_test([n_a, n_b], [0.5, 0.5])
-    print(f"  observed n: A={n_a}, B={n_b} -> SRM={srm['srm_detected']} (p={srm['p_value']:.4g})")
+    cup = cuped_calibrate(df)
+    x_a, y_a, x_b, y_b = _ratio_by_group(df)
+    ratio = delta_method_ratio.delta_method_test(x_a, y_a, x_b, y_b)
+    seg = _segment_ate(df)
+    adj, rejected = multiple_comparisons.benjamini_hochberg(seg["p_value"].to_numpy())
+    seg = seg.assign(p_adj=adj, sig=rejected)
+    trend, _ = novelty_primacy.fit_trend(df.assign(y=df["conv"]))
+    return {"srm": srm, "cuped": cup, "ratio": ratio, "segments": seg, "trend": trend}
+
+
+def main():
+    print("=== End-to-end A/B pipeline (synthetic data) ===\n")
+    df = generate_data()
+    res = run_pipeline(df)
+    srm, cup, ratio, seg, trend = (
+        res["srm"],
+        res["cuped"],
+        res["ratio"],
+        res["segments"],
+        res["trend"],
+    )
+
+    print("[1] SRM check (expected 50/50 split)")
+    print(
+        f"  observed n: A={int(srm['observed'][0])}, B={int(srm['observed'][1])} -> SRM={srm['srm_detected']} (p={srm['p_value']:.4g})"
+    )
 
     print("\n[2] CUPED variance reduction (conv, pre-period sessions)")
     cup = cuped_calibrate(df)

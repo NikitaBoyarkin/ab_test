@@ -16,6 +16,7 @@ uv run python scripts/srm_test.py   # run a single module's demo
 uv run pytest                 # run the calibration test suite
 uv run ruff check .           # lint
 uv run python scripts/run_full_pipeline.py   # end-to-end demo -> outputs/report.md
+uv run python scripts/cli.py --help          # CLI: run any method from the terminal
 ```
 
 Requires Python >= 3.11. Managed with [uv](https://docs.astral.sh/uv/).
@@ -42,6 +43,25 @@ Requires Python >= 3.11. Managed with [uv](https://docs.astral.sh/uv/).
 | `scripts/novelty_primacy.py` | Time-varying effects | treat×day interaction detects novelty decay / primacy growth | — |
 | `scripts/switchback.py` | Cluster & switchback designs | cluster-robust SE; naive over-/under-rejects; carryover bias | cluster-robust variance |
 | `scripts/test_simulator.py` | Generic test calibration | plug any DGP + test → empirical Type I and power curve | — |
+
+## CLI
+
+Run any method from the terminal without editing code. Output is stable JSON by
+default; pass `--format markdown` for a report-style view.
+
+```bash
+uv run python scripts/cli.py srm --counts 1000 1100
+uv run python scripts/cli.py cuped --y-a control_y.csv --y-b treat_y.csv \
+    --x-a control_x.csv --x-b treat_x.csv
+uv run python scripts/cli.py ratio --x-a control_imp.csv --y-a control_clicks.csv \
+    --x-b treat_imp.csv --y-b treat_clicks.csv
+uv run python scripts/cli.py pipeline --data experiment.csv
+```
+
+`--help` documents every command. CSV inputs take the first numeric column
+(header row, if any, is ignored). `pipeline` expects columns
+`day, segment, treat, conv, pre_sessions, impressions, clicks` — the schema
+produced by `scripts/run_full_pipeline.py`.
 
 ## End-to-end pipeline
 
