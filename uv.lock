@@ -18,6 +18,7 @@ name = "ab-testing-toolkit"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "matplotlib" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "pandas" },
@@ -36,6 +37,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "matplotlib", specifier = ">=3.11.1" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "plotnine" },

@@ -16,6 +16,7 @@ uv run python scripts/srm_test.py   # run a single module's demo
 uv run pytest                 # run the calibration test suite
 uv run ruff check .           # lint
 uv run python scripts/run_full_pipeline.py   # end-to-end demo -> outputs/report.md
+uv run python scripts/make_figures.py        # full matplotlib figure gallery -> plots/
 uv run python scripts/cli.py --help          # CLI: run any method from the terminal
 ```
 
@@ -69,6 +70,21 @@ produced by `scripts/run_full_pipeline.py`.
 synthetic data: SRM check → CUPED → delta-method CTR test → per-segment ATE with
 BH correction → novelty check → a markdown report in `outputs/report.md`.
 
+## Figures
+
+`scripts/make_figures.py` renders the calibration story of every module as a
+chart — 20 figures into `plots/` in one run (~15s). `scripts/plotting.py` holds
+the shared style: headless Agg backend, a colorblind-safe Okabe-Ito palette,
+constrained layout, 300 dpi, and a single `save_fig` helper. All new figures use
+the object-oriented matplotlib API (`fig, ax = plt.subplots()`).
+
+`scripts/run_full_pipeline.py` additionally writes three figures and embeds them
+in `outputs/report.md` (CTR lift with CI, segment forest plot, novelty trend).
+
+The two sequential-testing charts in `sequential_ab_testing.py` stay on
+plotnine and keep their ggplot theme; matplotlib is used for the rest of the
+gallery.
+
 ## Testing philosophy
 
 The `tests/` suite re-runs every calibration with assertions:
@@ -86,6 +102,8 @@ push.
 
 ```
 scripts/            method modules (one topic each) + end-to-end pipeline
+scripts/plotting.py shared matplotlib style + save_fig helper
+scripts/make_figures.py  full figure gallery (one function per module)
 tests/              calibration test suite
 plots/  outputs/    generated artifacts (gitignored)
 ```

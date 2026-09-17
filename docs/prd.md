@@ -307,7 +307,7 @@ A/B Testing Methodology Toolkit — эмпирический, калиброво
 ### Compatibility
 - Python >= 3.11.
 - Менеджер: uv.
-- Зависимости: numpy, pandas, scipy, statsmodels, plotnine.
+- Зависимости: numpy, pandas, scipy, statsmodels, plotnine, matplotlib.
 
 ### Code Quality
 - Ruff: `select = ["E", "F", "I", "UP", "B"]`, `ignore = ["E501", "UP009"]`.
@@ -326,7 +326,8 @@ plots/  outputs/    генерируемые артефакты (gitignored)
 ### Технологический стек
 - **Язык:** Python >= 3.11
 - **Наука:** numpy, pandas, scipy, statsmodels
-- **Визуализация:** plotnine
+- **Визуализация:** plotnine (sequential-графики, ggplot-тема) + matplotlib
+  (калибровочная галерея `scripts/make_figures.py` и графики pipeline-отчёта)
 - **Инструменты:** uv, pytest, ruff
 
 ### Внешние зависимости

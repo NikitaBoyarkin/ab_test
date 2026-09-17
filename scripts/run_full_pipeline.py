@@ -24,12 +24,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import cuped
 import delta_method_ratio
+import make_figures
 import multiple_comparisons
 import novelty_primacy
 import srm_test
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUTS_DIR = ROOT / "outputs"
+PLOTS_DIR = ROOT / "plots"
 
 SEGMENTS = ["mobile", "desktop", "tablet"]
 SEGMENT_UPLIFT = {"mobile": 0.006, "desktop": 0.0, "tablet": -0.004}
@@ -164,9 +166,14 @@ def main():
     print(f"  treat:day coef = {trend['inter_coef']:+.5f} p = {trend['p_value']:.4f}")
     print(f"  diagnosis: {novelty_primacy.diagnose(trend)}")
 
-    print("\n[6] Writing report -> outputs/report.md")
+    print("\n[6] Rendering figures -> plots/")
+    figures = make_figures.figure_pipeline(df)
+    for path in figures.values():
+        print(f"  wrote {path.name}")
+
+    print("\n[7] Writing report -> outputs/report.md")
     OUTPUTS_DIR.mkdir(exist_ok=True)
-    write_report(df, srm, cup, ratio, seg, trend, OUTPUTS_DIR / "report.md")
+    write_report(df, srm, cup, ratio, seg, trend, OUTPUTS_DIR / "report.md", figures=figures)
 
 
 def cuped_calibrate(df):
@@ -187,7 +194,14 @@ def cuped_calibrate(df):
     }
 
 
-def write_report(df, srm, cup, ratio, seg, trend, path):
+def write_report(df, srm, cup, ratio, seg, trend, path, figures=None):
+    """Render the markdown report; `figures` maps figure name -> Path to embed."""
+
+    def _fig(name):
+        if not figures or name not in figures:
+            return ""
+        return f"\n![{name}](../plots/{name})\n"
+
     conclusion = []
     if srm["srm_detected"]:
         conclusion.append("- FAIL: sample ratio mismatch — do NOT trust downstream tests.")
@@ -232,7 +246,7 @@ def write_report(df, srm, cup, ratio, seg, trend, path):
 | | CTR_A | CTR_B | diff | p | sig |
 |---|---|---|---|---|---|
 | CTR | {ratio["ratio_a"]:.4f} | {ratio["ratio_b"]:.4f} | {ratio["diff"]:+.5f} | {ratio["p_value"]:.4f} | {ratio["significant"]} |
-
+{_fig("pipeline_ctr_ci.png")}
 ## 4. Segment heterogeneity (BH-corrected)
 | segment | ATE | p_adj | significant |
 |---|---|---|---|
@@ -241,11 +255,11 @@ def write_report(df, srm, cup, ratio, seg, trend, path):
             f"| {r.segment} | {r.ate:+.4f} | {r.p_adj:.4f} | {r.sig} |" for r in seg.itertuples()
         )
         + f"""
-
+{_fig("pipeline_segments.png")}
 ## 5. Novelty / primacy
 - treat:day = {trend["inter_coef"]:+.5f} (p={trend["p_value"]:.4f})
 - Diagnosis: {novelty_primacy.diagnose(trend)}
-
+{_fig("pipeline_novelty.png")}
 ## 6. Conclusion
 {chr(10).join(conclusion)}
 """

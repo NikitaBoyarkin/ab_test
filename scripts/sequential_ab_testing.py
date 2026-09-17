@@ -31,7 +31,7 @@ from plotnine import (
 )
 from sample_size import two_proportion
 
-PLOTS_DIR = Path(__file__).resolve().parent / "plots"
+PLOTS_DIR = Path(__file__).resolve().parent.parent / "plots"
 
 # Sample-size table from https://www.evanmiller.org/ab-testing/sequential.html
 SEQ_SIZE_TABLE = pd.DataFrame(
