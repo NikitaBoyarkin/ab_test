@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-import numpy as np
-
 import delta_method_ratio as dmr
+import numpy as np
 
 
 def test_aa_calibration_type1_about_5pct():

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-import numpy as np
-
 import multiple_comparisons as mc
+import numpy as np
 
 
 def test_bonferroni_worked_example():

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-import numpy as np
-
 import msprt_always_valid as m
+import numpy as np
 
 
 def test_naive_inflated_always_valid_calibrated():

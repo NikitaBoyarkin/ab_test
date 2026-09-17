@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-import numpy as np
-
 import bayesian_ab_test as b
+import numpy as np
 
 
 def test_b_correctly_favored_when_clearly_better():

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-import numpy as np
-
 import bootstrap_ci as bc
+import numpy as np
 
 
 def test_bca_mean_coverage():

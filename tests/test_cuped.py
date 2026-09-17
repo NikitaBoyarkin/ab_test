@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-import numpy as np
-
 import cuped
+import numpy as np
 
 
 def _run_trial(effect, seed, use_cuped):

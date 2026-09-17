@@ -122,7 +122,13 @@ def build_parser():
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("srm", help="Sample Ratio Mismatch check")
-    p.add_argument("--counts", nargs="+", type=int, required=True, help="observed counts per arm, e.g. 1000 1100")
+    p.add_argument(
+        "--counts",
+        nargs="+",
+        type=int,
+        required=True,
+        help="observed counts per arm, e.g. 1000 1100",
+    )
     p.add_argument(
         "--ratio",
         nargs="+",

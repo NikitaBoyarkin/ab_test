@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-import numpy as np
-
 import group_sequential as gs
+import numpy as np
 
 
 def test_naive_peeking_inflates_type1():
