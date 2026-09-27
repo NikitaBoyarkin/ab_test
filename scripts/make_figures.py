@@ -112,8 +112,10 @@ def figure_cuped() -> Path:
     theta = cuped.cuped_theta(np.concatenate([y_a, y_b]), np.concatenate([x_a, x_b]))
     x_all = np.concatenate([x_a, x_b])
     y_all = np.concatenate([y_a, y_b])
-    pre = cuped.t_test(y_a, y_b)
-    post = cuped.t_test(cuped.cuped_adjust(y_a, x_a, theta), cuped.cuped_adjust(y_b, x_b, theta))
+    pre = cuped.welch_mean_test(y_a, y_b)
+    post = cuped.welch_mean_test(
+        cuped.cuped_adjust(y_a, x_a, theta), cuped.cuped_adjust(y_b, x_b, theta)
+    )
 
     fig, ax = new_axes(1, 2, figsize=(11, 4.5))
     ax[0].scatter(x_a, y_a, s=6, alpha=0.25, color=CONTROL_COLOR, label="control")
@@ -498,11 +500,11 @@ def figure_switchback() -> Path:
     fig, ax = new_axes(1, 2, figsize=(11.5, 4.5))
 
     cr_df = switchback.simulate_cluster_randomized(effect=0.30, seed=1)
-    _, se_cr_naive, _ = switchback.cr_naive(cr_df)
-    _, se_cr_robust, _ = switchback.cr_cluster_robust(cr_df)
+    se_cr_naive = switchback.ols_effect(cr_df)["se"]
+    se_cr_robust = switchback.ols_effect_cluster_robust(cr_df)["se"]
     sb_df = switchback.simulate_switchback(effect=0.30, seed=1)
-    _, se_sb_naive, _ = switchback.sw_naive(sb_df)
-    _, se_sb_robust, _ = switchback.sw_cluster_robust(sb_df)
+    se_sb_naive = switchback.ols_effect(sb_df)["se"]
+    se_sb_robust = switchback.ols_effect_cluster_robust(sb_df)["se"]
 
     x = np.arange(2)
     ax[0].bar(x - 0.2, [se_cr_naive, se_sb_naive], 0.4, label="naive SE", color=NEUTRAL_COLOR)
@@ -521,7 +523,7 @@ def figure_switchback() -> Path:
     means = []
     for carry in carries:
         ests = [
-            switchback.sw_cluster_robust(
+            switchback.ols_effect_cluster_robust(
                 switchback.simulate_switchback(effect=0.0, carryover=carry, block_size=2, seed=s)
             )[0]
             for s in range(120)

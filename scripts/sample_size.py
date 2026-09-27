@@ -6,13 +6,16 @@ sequential designs are compared against (see `sequential_ab_testing.py` and
 `group_sequential.py`, which both reference these numbers).
 
 Reference (two-proportion formula):
-    https://stats.stackexchange.com/questions/178568/calculate-sample-size-based-on-conversion-rate-minimum-detectable-effect-stati
+    https://stats.stackexchange.com/questions/178568/calculate-sample-size-based-on-conversion-rate-minimum-detectable-effect-statistical-power-and-significance-level
 """
 
 import math
+import warnings
 
 import numpy as np
 from scipy import stats
+
+warnings.filterwarnings("ignore")
 
 
 def two_proportion(base_rate, absolute_diff, alpha=0.05, beta=0.2, one_tail=True):
@@ -57,7 +60,7 @@ def power_two_proportion(base_rate, absolute_diff, n, alpha=0.05, one_tail=True)
     return float(stats.norm.cdf((absolute_diff - crit * se) / se))
 
 
-if __name__ == "__main__":
+def main():
     print("=== Sample Size & Power ===\n")
     for diff in (0.01, 0.02, 0.05):
         n = two_proportion(base_rate=0.10, absolute_diff=diff)
@@ -69,3 +72,7 @@ if __name__ == "__main__":
     for effect in (0.1, 0.2, 0.5):
         n = two_mean(effect_size=effect, sd=1.0)
         print(f"  mean test, effect={effect:.1f} sd: n/arm = {n}")
+
+
+if __name__ == "__main__":
+    main()

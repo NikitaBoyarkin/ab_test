@@ -110,9 +110,3 @@ def save_fig(fig, name: str, out_dir: Path | None = None) -> Path:
     )
     plt.close(fig)
     return path
-
-
-def annotate_bars(ax, fmt: str = "{:.3g}", dy: float = 0.0, **kwargs) -> None:
-    """Label every bar in a bar chart with its height value."""
-    for container in ax.containers:
-        ax.bar_label(container, fmt=fmt, padding=2 + dy, **kwargs)

@@ -48,21 +48,29 @@ def fit_het(df, ref_segment="desktop"):
         categories=[ref_segment] + [s for s in df["segment"].unique() if s != ref_segment],
     )
     model = smf.ols("y ~ treat * segment", data=df).fit()
-    # Per-segment ATE = mean(y|treat=1,g) - mean(y|treat=0,g)
+    # The model is saturated, so every per-segment ATE below equals the raw
+    # within-cell difference; the SE and CI, however, are read off the fitted
+    # model's covariance -- a per-cell Welch SE would contradict the interaction
+    # model those CIs are attributed to under heteroskedasticity.
+    terms = list(model.params.index)
     rows = []
     for g in df["segment"].cat.categories:
         sub = df[df["segment"] == g]
-        a = sub[sub["treat"] == 0]["y"]
-        b = sub[sub["treat"] == 1]["y"]
-        diff = b.mean() - a.mean()
-        se = np.sqrt(a.var(ddof=1) / len(a) + b.var(ddof=1) / len(b))
+        diff = sub[sub["treat"] == 1]["y"].mean() - sub[sub["treat"] == 0]["y"].mean()
+        contrast = np.zeros(len(terms))
+        contrast[terms.index("treat")] = 1.0
+        interaction = f"treat:segment[T.{g}]"
+        if interaction in terms:
+            contrast[terms.index(interaction)] = 1.0
+        test = model.t_test(contrast)
+        lo, hi = np.squeeze(test.conf_int())
         rows.append(
             {
                 "segment": g,
                 "ate": diff,
-                "se": se,
-                "ci_low": diff - 1.96 * se,
-                "ci_high": diff + 1.96 * se,
+                "se": float(np.squeeze(test.sd)),
+                "ci_low": float(lo),
+                "ci_high": float(hi),
             }
         )
     ate = pd.DataFrame(rows).set_index("segment")

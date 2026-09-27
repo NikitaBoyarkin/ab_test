@@ -41,8 +41,12 @@ def msprt_lambda(S, t, rho):
 
 
 def always_valid_pvalue(S, t, rho):
-    """Always-valid p-value = 1 / Lambda_t (valid at any stopping time)."""
-    return 1.0 / msprt_lambda(S, t, rho)
+    """Always-valid p-value = min(1, 1 / Lambda_t) (valid at any stopping time).
+
+    The clamp belongs to the definition: Lambda_t < 1 is evidence for the null,
+    so the raw reciprocal would exceed 1 and stop being a p-value.
+    """
+    return np.minimum(1.0, 1.0 / msprt_lambda(S, t, rho))
 
 
 def naive_z_pvalue(S, t):

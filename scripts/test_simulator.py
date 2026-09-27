@@ -28,7 +28,10 @@ def simulate(dgp_fn, test_fn, effect=0.0, n_trials=1000, alpha=0.05, seed=0):
     for _ in range(n_trials):
         # give the dgp a deterministic sub-seed so trials are independent
         a, b = dgp_fn(effect, seed=int(rng.integers(1 << 31)))
-        if test_fn(a, b)["reject"]:
+        # alpha must reach the test, or `alpha` below reports a level the test
+        # never used; accept either key so any module's test fn can be plugged in
+        res = test_fn(a, b, alpha=alpha)
+        if res.get("reject", res.get("significant")):
             rejects += 1
     rate = rejects / n_trials
     return {

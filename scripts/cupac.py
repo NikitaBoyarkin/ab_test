@@ -12,6 +12,13 @@ The adjustment removes the X-explained component, so variance drops by
 prediction function is swappable for any ML model (e.g. gradient boosting)
 without changing the adjustment or the test.
 
+R^2 and the control-arm variance reduction are in-sample: the model is fit on
+the control arm and predicts that same arm back, so they are optimistic for
+the control arm and say nothing about the treatment arm. A high-capacity model
+(e.g. gradient boosting) needs cross-fitted (out-of-fold) predictions to keep
+the adjustment honest — its in-sample control residuals collapse and the
+reported reduction degenerates, which would break Type I error.
+
 Reference: Poyarkov, Drutsa, Khalman, Gusev, Serdyukov (2016), "Accelerated
 Online Controlled Experiments with CUPED" (CUPAC).
 """

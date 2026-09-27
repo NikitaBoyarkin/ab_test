@@ -6,18 +6,20 @@ import numpy as np
 def _run_trial(effect, seed, use_cuped):
     xa, ya, xb, yb = cuped.simulate_cuped(n=2000, effect=effect, rho=0.6, seed=seed)
     if not use_cuped:
-        return cuped.t_test(ya, yb)
+        return cuped.welch_mean_test(ya, yb)
     theta = cuped.cuped_theta(np.concatenate([ya, yb]), np.concatenate([xa, xb]))
     a = cuped.cuped_adjust(ya, xa, theta)
     b = cuped.cuped_adjust(yb, xb, theta)
-    return cuped.t_test(a, b)
+    return cuped.welch_mean_test(a, b)
 
 
 def test_variance_reduction_matches_theory():
     xa, ya, xb, yb = cuped.simulate_cuped(n=3000, effect=0.05, rho=0.6, seed=1)
     theta = cuped.cuped_theta(np.concatenate([ya, yb]), np.concatenate([xa, xb]))
-    pre = cuped.t_test(ya, yb)
-    post = cuped.t_test(cuped.cuped_adjust(ya, xa, theta), cuped.cuped_adjust(yb, xb, theta))
+    pre = cuped.welch_mean_test(ya, yb)
+    post = cuped.welch_mean_test(
+        cuped.cuped_adjust(ya, xa, theta), cuped.cuped_adjust(yb, xb, theta)
+    )
     reduction = 1 - (post["var_a"] + post["var_b"]) / (pre["var_a"] + pre["var_b"])
     # DGP links X and Y through a shared latent with corr(X,Y) = rho^2, so the
     # theory reduction is corr(X,Y)^2 = rho^4 = 0.1296.

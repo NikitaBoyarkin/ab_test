@@ -61,7 +61,7 @@ uv run python scripts/cli.py pipeline --data experiment.csv
 
 `--help` documents every command. CSV inputs take the first numeric column
 (header row, if any, is ignored). `pipeline` expects columns
-`day, segment, treat, conv, pre_sessions, impressions, clicks` — the schema
+`day, segment, treat, conv, pre_conv, pre_sessions, impressions, clicks` — the schema
 produced by `scripts/run_full_pipeline.py`.
 
 ## End-to-end pipeline

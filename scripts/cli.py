@@ -46,6 +46,23 @@ def _load_col(path):
     return pd.to_numeric(col, errors="coerce").dropna().to_numpy(dtype=float)
 
 
+def _check_counts(counts, ratio, min_counts=2):
+    """--counts needs at least `min_counts` arms and a matching-length --ratio."""
+    if len(counts) < min_counts:
+        raise ValueError(f"--counts needs at least {min_counts} values, got {len(counts)}")
+    if len(ratio) != len(counts):
+        raise ValueError(f"--ratio has {len(ratio)} values but --counts has {len(counts)}")
+
+
+def _check_same_length(**cols):
+    """Every array must have the same length; keys are CLI flags for the message."""
+    items = list(cols.items())
+    n = len(items[0][1])
+    for name, arr in items[1:]:
+        if len(arr) != n:
+            raise ValueError(f"{items[0][0]} has {n} rows but {name} has {len(arr)}")
+
+
 def _emit(result, fmt):
     if fmt == "json":
         print(json.dumps(_jsonable(result), indent=2))
@@ -72,20 +89,23 @@ def _add_format(parser):
 
 
 def cmd_srm(args):
+    _check_counts(args.counts, args.ratio)
     _emit(srm_test.srm_test(args.counts, args.ratio, alpha=args.alpha), args.format)
 
 
 def cmd_cuped(args):
     y_a, y_b = _load_col(args.y_a), _load_col(args.y_b)
     x_a, x_b = _load_col(args.x_a), _load_col(args.x_b)
+    _check_same_length(**{"--y-a": y_a, "--x-a": x_a})
+    _check_same_length(**{"--y-b": y_b, "--x-b": x_b})
     theta = cuped.cuped_theta(np.concatenate([y_a, y_b]), np.concatenate([x_a, x_b]))
     a = cuped.cuped_adjust(y_a, x_a, theta)
     b = cuped.cuped_adjust(y_b, x_b, theta)
-    naive = cuped.t_test(y_a, y_b)
-    adj = cuped.t_test(a, b)
+    naive = cuped.welch_mean_test(y_a, y_b)
+    adj = cuped.welch_mean_test(a, b)
     _emit(
         {
-            "diff": adj["diff"],
+            "diff": adj["point"],
             "se": adj["se"],
             "p_value": adj["p_value"],
             "significant": bool(adj["p_value"] < args.alpha),
@@ -100,12 +120,23 @@ def cmd_cuped(args):
 def cmd_ratio(args):
     x_a, y_a = _load_col(args.x_a), _load_col(args.y_a)
     x_b, y_b = _load_col(args.x_b), _load_col(args.y_b)
+    _check_same_length(**{"--x-a": x_a, "--y-a": y_a})
+    _check_same_length(**{"--x-b": x_b, "--y-b": y_b})
     _emit(delta_method_ratio.delta_method_test(x_a, y_a, x_b, y_b, alpha=args.alpha), args.format)
 
 
 def cmd_pipeline(args):
     df = pd.read_csv(args.data)
-    required = {"day", "segment", "treat", "conv", "pre_sessions", "impressions", "clicks"}
+    required = {
+        "day",
+        "segment",
+        "treat",
+        "conv",
+        "pre_conv",
+        "pre_sessions",
+        "impressions",
+        "clicks",
+    }
     missing = required - set(df.columns)
     if missing:
         raise SystemExit(
@@ -164,7 +195,7 @@ def build_parser():
     p.add_argument(
         "--data",
         required=True,
-        help="CSV with columns: day, segment, treat, conv, pre_sessions, impressions, clicks",
+        help="CSV with columns: day, segment, treat, conv, pre_conv, pre_sessions, impressions, clicks",
     )
     _add_format(p)
     p.set_defaults(func=cmd_pipeline)
@@ -173,8 +204,12 @@ def build_parser():
 
 
 def main(argv=None):
-    args = build_parser().parse_args(argv)
-    args.func(args)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    try:
+        args.func(args)
+    except (ValueError, FileNotFoundError) as e:
+        parser.error(str(e))
 
 
 if __name__ == "__main__":

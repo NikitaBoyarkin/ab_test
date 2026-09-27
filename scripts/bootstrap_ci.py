@@ -59,17 +59,31 @@ def bootstrap_diff(a, b, statistic=np.mean, n_boot=2000, alpha=0.05, method="bca
 
 
 def _bca_interval(boot, a, b, statistic, point, alpha):
-    """Bias-corrected accelerated bootstrap interval for a difference."""
+    """Bias-corrected accelerated bootstrap interval for a difference.
+
+    The acceleration is the textbook jackknife constant of the two-sample
+    statistic theta = statistic(b) - statistic(a):
+
+        a = sum(u^3) / (6 * sum(u^2)^1.5),  u = mean(theta_(.)) - theta_(i)
+
+    theta_(i) is theta recomputed with observation i dropped. Both arms enter
+    theta with opposite signs, so leaving out an observation from either arm
+    moves theta; the jackknife therefore has len(a) + len(b) deviates. Taking
+    the jackknife of each arm's statistic separately and concatenating the
+    centred arrays gives the b-group deviates the wrong sign -- verified
+    against scipy.stats.bootstrap(method="bca") to shift the interval.
+    """
     # bias-correction z0 from proportion of boot replicates < point
     z0 = stats.norm.ppf((boot < point).mean())
-    # acceleration via jackknife of the statistic over the combined influence
-    # (use jackknife on each group's statistic, combine as difference)
-    ja = np.array([statistic(np.delete(a, i)) for i in range(len(a))])
-    jb = np.array([statistic(np.delete(b, i)) for i in range(len(b))])
-    # influence of each obs on the difference; acceleration on pooled jackknife
-    jk = np.concatenate([ja - ja.mean(), jb - jb.mean()])
-    denom = np.sum(jk**3) / np.sum(jk**2) ** 1.5
-    acc = denom
+    th = np.empty(len(a) + len(b))
+    stat_b = statistic(b)
+    for i in range(len(a)):
+        th[i] = stat_b - statistic(np.delete(a, i))
+    stat_a = statistic(a)
+    for j in range(len(b)):
+        th[len(a) + j] = statistic(np.delete(b, j)) - stat_a
+    u = th.mean() - th
+    acc = np.sum(u**3) / (6.0 * np.sum(u**2) ** 1.5)
     z_lo = stats.norm.ppf(alpha / 2)
     z_hi = stats.norm.ppf(1 - alpha / 2)
     a1 = stats.norm.cdf(z0 + (z0 + z_lo) / (1 - acc * (z0 + z_lo)))

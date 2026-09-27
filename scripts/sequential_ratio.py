@@ -56,7 +56,7 @@ def ratio_interim(x_a, y_a, x_b, y_b):
 
 def msprt_ratio(D, z, info, tau):
     lam = (1 + tau**2 * info) ** (-0.5) * np.exp(tau**2 * z**2 * info / (2 * (1 + tau**2 * info)))
-    return float(lam), float(1.0 / lam)
+    return float(lam), float(min(1.0, 1.0 / lam))
 
 
 def gen_batch(n, base_rate, rel_lift, seed):

@@ -52,9 +52,11 @@ def generate_data(n_days=21, n_per_day=2000, effect=0.008, novelty=0.6, seed=7):
             seg = rng.choice(SEGMENTS, p=[0.4, 0.4, 0.2])
             treat = int(rng.random() < 0.5)
             latent = rng.normal(0, 1)
-            p_conv = 1 / (1 + np.exp(-(-3.0 + 0.8 * latent + eff * treat + SEGMENT_UPLIFT[seg])))
+            p_pre_conv = 1 / (1 + np.exp(-(-3.0 + 2.5 * latent + SEGMENT_UPLIFT[seg])))
+            pre_conv = int(rng.random() < p_pre_conv)  # same metric, pre-period: CUPED covariate
+            p_conv = 1 / (1 + np.exp(-(-3.0 + 2.5 * latent + eff * treat + SEGMENT_UPLIFT[seg])))
             conv = int(rng.random() < p_conv)
-            pre_sessions = rng.poisson(3 * np.exp(0.5 * latent))  # correlates w/ conv
+            pre_sessions = rng.poisson(3 * np.exp(0.5 * latent))  # segment feature
             impressions = int(rng.lognormal(3.5, 0.6)) + 1
             ctr = 0.05 * (1 + 0.1 * treat)
             clicks = int(rng.binomial(impressions, ctr))
@@ -64,6 +66,7 @@ def generate_data(n_days=21, n_per_day=2000, effect=0.008, novelty=0.6, seed=7):
                     "segment": seg,
                     "treat": treat,
                     "conv": conv,
+                    "pre_conv": pre_conv,
                     "pre_sessions": pre_sessions,
                     "impressions": impressions,
                     "clicks": clicks,
@@ -139,16 +142,13 @@ def main():
         f"  observed n: A={int(srm['observed'][0])}, B={int(srm['observed'][1])} -> SRM={srm['srm_detected']} (p={srm['p_value']:.4g})"
     )
 
-    print("\n[2] CUPED variance reduction (conv, pre-period sessions)")
-    cup = cuped_calibrate(df)
+    print("\n[2] CUPED variance reduction (conv, pre-period conversion)")
     print(
         f"  naive SE={cup['se_naive']:.5f} vs CUPED SE={cup['se_cuped']:.5f} "
         f"-> variance reduction {cup['var_reduction'] * 100:.1f}%"
     )
 
     print("\n[3] Main decision metric: CTR via delta method")
-    x_a, y_a, x_b, y_b = _ratio_by_group(df)
-    ratio = delta_method_ratio.delta_method_test(x_a, y_a, x_b, y_b)
     print(
         f"  CTR_A={ratio['ratio_a']:.4f} CTR_B={ratio['ratio_b']:.4f} "
         f"diff={ratio['diff']:+.5f} p={ratio['p_value']:.4f} "
@@ -156,13 +156,9 @@ def main():
     )
 
     print("\n[4] Per-segment ATE on conversion (BH-corrected)")
-    seg = _segment_ate(df)
-    adj, rejected = multiple_comparisons.benjamini_hochberg(seg["p_value"].to_numpy())
-    seg = seg.assign(p_adj=adj, sig=rejected)
     print(seg.to_string(index=False))
 
     print("\n[5] Novelty check (treat:day interaction)")
-    trend, _ = novelty_primacy.fit_trend(df.assign(y=df["conv"]))
     print(f"  treat:day coef = {trend['inter_coef']:+.5f} p = {trend['p_value']:.4f}")
     print(f"  diagnosis: {novelty_primacy.diagnose(trend)}")
 
@@ -177,9 +173,9 @@ def main():
 
 
 def cuped_calibrate(df):
-    """CUPED on conversion using pre-period sessions as the covariate."""
+    """CUPED on conversion using the pre-period conversion indicator as the covariate."""
     y = df["conv"].to_numpy(dtype=float)
-    x = df["pre_sessions"].to_numpy(dtype=float)
+    x = df["pre_conv"].to_numpy(dtype=float)
     theta = cuped.cuped_theta(y, x)
     y_adj = cuped.cuped_adjust(y, x, theta)
     mask = df["treat"].to_numpy() == 0

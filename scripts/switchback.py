@@ -43,16 +43,27 @@ def simulate_cluster_randomized(n_clusters=30, n_periods=14, effect=0.0, cluster
     return pd.DataFrame(rows)
 
 
-def cr_naive(df):
-    res = smf.ols("y ~ treat + C(period)", data=df).fit()
-    return res.params["treat"], res.bse["treat"], res.pvalues["treat"]
+def _effect(res, alpha):
+    p = float(res.pvalues["treat"])
+    return {
+        "coef": float(res.params["treat"]),
+        "se": float(res.bse["treat"]),
+        "p_value": p,
+        "significant": p < alpha,
+    }
 
 
-def cr_cluster_robust(df):
+def ols_effect(df, alpha=0.05) -> dict:
+    """Naive OLS treatment effect with period fixed effects."""
+    return _effect(smf.ols("y ~ treat + C(period)", data=df).fit(), alpha)
+
+
+def ols_effect_cluster_robust(df, alpha=0.05) -> dict:
+    """Same, with SEs clustered by `cluster` (clusters are the independent draws)."""
     res = smf.ols("y ~ treat + C(period)", data=df).fit(
         cov_type="cluster", cov_kwds={"groups": df["cluster"]}
     )
-    return res.params["treat"], res.bse["treat"], res.pvalues["treat"]
+    return _effect(res, alpha)
 
 
 # ---- 2. switchback (treatment switches over time within a cluster) ----------
@@ -82,24 +93,12 @@ def simulate_switchback(
     return pd.DataFrame(rows)
 
 
-def sw_naive(df):
-    res = smf.ols("y ~ treat + C(period)", data=df).fit()
-    return res.params["treat"], res.bse["treat"], res.pvalues["treat"]
-
-
-def sw_cluster_robust(df):
-    res = smf.ols("y ~ treat + C(period)", data=df).fit(
-        cov_type="cluster", cov_kwds={"groups": df["cluster"]}
-    )
-    return res.params["treat"], res.bse["treat"], res.pvalues["treat"]
-
-
 def _calibrate(sim_fn, naive_fn, cr_fn, n_sims=400, alpha=0.05, **kw):
     rn = rc = 0
     for s in range(n_sims):
         d = sim_fn(seed=s, **kw)
-        _, _, pn = naive_fn(d)
-        _, _, pc = cr_fn(d)
+        pn = naive_fn(d)["p_value"]
+        pc = cr_fn(d)["p_value"]
         rn += pn < alpha
         rc += pc < alpha
     return rn / n_sims, rc / n_sims
@@ -110,15 +109,17 @@ def main():
 
     # ---- Design 1: cluster-randomized ----
     df = simulate_cluster_randomized(effect=0.30, seed=1)
-    en, sen, _ = cr_naive(df)
-    ec, sec, _ = cr_cluster_robust(df)
+    naive = ols_effect(df)
+    robust = ols_effect_cluster_robust(df)
     print("[1] Cluster-randomized (30 clusters x 14 periods, effect = 0.30)")
     print(f"  {'method':<26} {'estimate':>9} {'SE':>8}")
-    print(f"  {'naive (no clustering)':<26} {en:>9.3f} {sen:>8.3f}")
-    print(f"  {'cluster-robust':<26} {ec:>9.3f} {sec:>8.3f}")
-    print(f"  naive SE ({sen:.3f}) << cluster-robust ({sec:.3f}): effective n is")
+    print(f"  {'naive (no clustering)':<26} {naive['coef']:>9.3f} {naive['se']:>8.3f}")
+    print(f"  {'cluster-robust':<26} {robust['coef']:>9.3f} {robust['se']:>8.3f}")
+    print(f"  naive SE ({naive['se']:.3f}) << cluster-robust ({robust['se']:.3f}): effective n is")
     print("  n_clusters, not n_clusters x n_periods -> naive over-rejects.")
-    rn, rc = _calibrate(simulate_cluster_randomized, cr_naive, cr_cluster_robust, effect=0.0)
+    rn, rc = _calibrate(
+        simulate_cluster_randomized, ols_effect, ols_effect_cluster_robust, effect=0.0
+    )
     print(
         f"  null reject rate: naive {rn * 100:.1f}% (inflated) | "
         f"cluster-robust {rc * 100:.1f}% (~5% expected)\n"
@@ -126,16 +127,16 @@ def main():
 
     # ---- Design 2: switchback ----
     df = simulate_switchback(effect=0.30, seed=1)
-    en, sen, _ = sw_naive(df)
-    ec, sec, _ = sw_cluster_robust(df)
+    naive = ols_effect(df)
+    robust = ols_effect_cluster_robust(df)
     print("[2] Switchback (treatment switches within cluster over time, AR(1) shocks)")
     print(f"  {'method':<26} {'estimate':>9} {'SE':>8}")
-    print(f"  {'naive (no clustering)':<26} {en:>9.3f} {sen:>8.3f}")
-    print(f"  {'cluster-robust + period FE':<26} {ec:>9.3f} {sec:>8.3f}")
-    print(f"  naive SE ({sen:.3f}) >= cluster-robust ({sec:.3f}): within-cluster")
+    print(f"  {'naive (no clustering)':<26} {naive['coef']:>9.3f} {naive['se']:>8.3f}")
+    print(f"  {'cluster-robust + period FE':<26} {robust['coef']:>9.3f} {robust['se']:>8.3f}")
+    print(f"  naive SE ({naive['se']:.3f}) >= cluster-robust ({robust['se']:.3f}): within-cluster")
     print("  correlation cancels in the contrast, so naive is conservative;")
     print("  cluster-robust recovers the smaller correct SE -> more power.")
-    rn, rc = _calibrate(simulate_switchback, sw_naive, sw_cluster_robust, effect=0.0)
+    rn, rc = _calibrate(simulate_switchback, ols_effect, ols_effect_cluster_robust, effect=0.0)
     print(
         f"  null reject rate: naive {rn * 100:.1f}% (conservative) | "
         f"cluster-robust {rc * 100:.1f}% (~5% expected)\n"
@@ -148,8 +149,7 @@ def main():
         ests = []
         for s in range(200):
             d = simulate_switchback(effect=0.0, carryover=carry, block_size=2, seed=s)
-            est, _, _ = sw_cluster_robust(d)
-            ests.append(est)
+            ests.append(ols_effect_cluster_robust(d)["coef"])
         print(f"  {carry:<12.1f} {np.mean(ests):>11.3f} {0.0:>11}")
     print("  cluster-robust SE controls Type I error but does NOT fix carryover bias.")
     print("  Mitigate: washout period, or drop the first period of each cluster.")
