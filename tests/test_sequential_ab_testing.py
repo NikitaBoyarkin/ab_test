@@ -5,10 +5,16 @@ import sequential_ab_testing as sat
 
 
 def _run_trials(lift, n_trials=400, seed=42):
-    np.random.seed(seed)
+    # a local generator, not np.random.seed(): seeding the global RNG here would
+    # also fix the stream for every other test that draws random numbers
+    rng = np.random.default_rng(seed)
     rows = [
         sat.seq_ab_testing(
-            base_rate=0.01, true_relative_lift_effect=lift, n_total_success=808, n_success_ahead=56
+            base_rate=0.01,
+            true_relative_lift_effect=lift,
+            n_total_success=808,
+            n_success_ahead=56,
+            rng=rng,
         )
         for _ in range(n_trials)
     ]

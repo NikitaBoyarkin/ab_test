@@ -27,6 +27,11 @@ def cuped_theta(y, x) -> float:
     y = np.asarray(y, dtype=float)
     cov = np.cov(x, y, ddof=1)[0, 1]
     var_x = np.var(x, ddof=1)
+    # A covariate with no variance (every user identical, e.g. all-zero
+    # pre-period activity) carries no information: theta is 0/0, so fall back to
+    # no adjustment rather than propagating nan through every downstream test.
+    if not var_x > 0:
+        return 0.0
     return float(cov / var_x)
 
 

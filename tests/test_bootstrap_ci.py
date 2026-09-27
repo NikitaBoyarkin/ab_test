@@ -36,3 +36,36 @@ def test_median_and_quantile_no_normal_theory():
     q90 = bc.bootstrap_diff(a, b, statistic=lambda x: np.quantile(x, 0.9), n_boot=500, seed=3)
     assert med["ci_low"] < med["ci_high"]
     assert q90["ci_low"] < q90["ci_high"]
+
+
+def test_bca_matches_scipy_golden():
+    """BCa interval must agree with the authoritative reference (scipy) on both ends.
+
+    Regression guard: the acceleration constant is easy to get subtly wrong
+    (wrong jackknife signs, missing 1/6), which shifts the whole interval.
+    Tolerance is relative to the CI width because the two implementations use
+    different bootstrap resamples, so exact equality is not expected.
+    """
+    from scipy import stats
+
+    def diff_stat(a, b, axis=0):
+        return np.mean(b, axis=axis) - np.mean(a, axis=axis)
+
+    for seed in (1, 7, 13):
+        r = np.random.default_rng(seed)
+        a = r.lognormal(2.0, 1.0, 150)
+        b = r.lognormal(2.1, 1.0, 150)
+        mine = bc.bootstrap_diff(a, b, np.mean, n_boot=2000, method="bca", seed=seed)
+        ref = stats.bootstrap(
+            (a, b),
+            diff_stat,
+            n_resamples=2000,
+            method="bca",
+            confidence_level=0.95,
+            random_state=np.random.default_rng(seed),
+            vectorized=True,
+        )
+        lo, hi = ref.confidence_interval
+        width = mine["ci_high"] - mine["ci_low"]
+        assert abs(mine["ci_low"] - lo) < 0.10 * width, f"seed={seed} lower end off"
+        assert abs(mine["ci_high"] - hi) < 0.10 * width, f"seed={seed} upper end off"

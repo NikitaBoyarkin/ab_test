@@ -51,18 +51,28 @@ def fixed_sample_size(base_rate, diff):
 
 
 def seq_ab_testing(
-    base_rate=0.01, true_relative_lift_effect=0, n_total_success=808, n_success_ahead=56
+    base_rate=0.01,
+    true_relative_lift_effect=0,
+    n_total_success=808,
+    n_success_ahead=56,
+    rng=None,
 ):
-    """Run one sequential A/B trial; return stopping outcome and sample size."""
+    """Run one sequential A/B trial; return stopping outcome and sample size.
+
+    `rng` only needs a `binomial(n=, p=)` method. It defaults to the global
+    `np.random` so existing callers keep their seeding; pass a
+    `np.random.default_rng(seed)` to make a trial reproducible without seeding
+    (and polluting) global RNG state.
+    """
+    if rng is None:
+        rng = np.random
     step_size = 50
     sample_size_per_group = 0
     n_success_a, n_success_b = 0, 0
     while True:
         sample_size_per_group += step_size
-        n_success_a += np.random.binomial(n=step_size, p=base_rate)
-        n_success_b += np.random.binomial(
-            n=step_size, p=base_rate * (1 + true_relative_lift_effect)
-        )
+        n_success_a += rng.binomial(n=step_size, p=base_rate)
+        n_success_b += rng.binomial(n=step_size, p=base_rate * (1 + true_relative_lift_effect))
         if (n_success_b - n_success_a) >= n_success_ahead:
             return {
                 "sample_size_per_group": sample_size_per_group,

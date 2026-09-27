@@ -1,12 +1,31 @@
 # A/B Testing Methodology Toolkit
 
 Empirical, calibration-driven A/B testing methods, implemented from the primary
-literature and validated by simulation. Every module ships with an A/A null
-check and a power/coverage calibration — the numbers are checked, not assumed.
+literature and validated by simulation.
 
 The guiding idea: a method is only as good as its Type I error under the null
 and its power under a real effect. Rather than trusting asymptotic promises,
-each module simulates the pipeline end-to-end and reports the empirical rates.
+every module's `main()` prints the calibration it is judged on, and the test
+suite re-runs that same calibration as assertions — Type I, power, CI coverage,
+FWER/FDR — instead of assuming it.
+
+## Headline results
+
+`uv run python scripts/run_full_pipeline.py` runs the whole flow on a default
+synthetic experiment (42,000 users, 21 days, A = 20,979 / B = 21,021) and writes
+`outputs/report.md` plus three figures:
+
+| Step | Result | Reading |
+|---|---|---|
+| Sample Ratio Mismatch (χ²) | A 20,979 / B 21,021, p = 0.8376 | split is clean — no bucketing bug |
+| CUPED variance reduction | SE 0.00360 → 0.00327 | **17.7%** of the variance removed using pre-period data |
+| Decision metric (delta-method CTR) | 0.0499 → 0.0550, +0.00512, p < 0.0001 | +0.51pp lift, significant |
+| Segment heterogeneity (BH-corrected) | mobile +0.0015, desktop −0.0001, tablet −0.0128 | no segment differs once correction is applied (all p_adj > 0.32) |
+| Novelty / primacy | treat×day +0.00065, p = 0.2714 | no time trend — the effect is stable |
+
+The point of the demo is that each step can *fail loudly*: an SRM check that
+fires, a CUPED adjustment that does not pay for itself, a segment that is only
+significant before correction.
 
 ## Quickstart
 
@@ -48,21 +67,34 @@ Requires Python >= 3.11. Managed with [uv](https://docs.astral.sh/uv/).
 ## CLI
 
 Run any method from the terminal without editing code. Output is stable JSON by
-default; pass `--format markdown` for a report-style view.
+default.
 
 ```bash
+uv run python scripts/cli.py --help
 uv run python scripts/cli.py srm --counts 1000 1100
-uv run python scripts/cli.py cuped --y-a control_y.csv --y-b treat_y.csv \
-    --x-a control_x.csv --x-b treat_x.csv
-uv run python scripts/cli.py ratio --x-a control_imp.csv --y-a control_clicks.csv \
-    --x-b treat_imp.csv --y-b treat_clicks.csv
-uv run python scripts/cli.py pipeline --data experiment.csv
+uv run python scripts/cli.py pipeline --data data/experiment_sample.csv
 ```
 
-`--help` documents every command. CSV inputs take the first numeric column
-(header row, if any, is ignored). `pipeline` expects columns
-`day, segment, treat, conv, pre_conv, pre_sessions, impressions, clicks` — the schema
-produced by `scripts/run_full_pipeline.py`.
+`data/experiment_sample.csv` is a small committed fixture (600 users) in the
+pipeline schema `day, segment, treat, conv, pre_conv, pre_sessions, impressions,
+clicks` — the schema `scripts/run_full_pipeline.py` produces. Multi-column
+commands take **one numeric column per file** (a header row, if present, is
+ignored), so split the columns out of the fixture first:
+
+```bash
+uv run python -c "
+import pandas as pd
+df = pd.read_csv('data/experiment_sample.csv')
+for c in ['pre_sessions', 'conv']:
+    for t, g in df.groupby('treat'):
+        g[c].to_csv(f'/tmp/{c}_{t}.csv', index=False, header=False)
+"
+uv run python scripts/cli.py cuped --y-a /tmp/conv_0.csv --y-b /tmp/conv_1.csv \
+    --x-a /tmp/pre_sessions_0.csv --x-b /tmp/pre_sessions_1.csv
+```
+
+Invalid input (a bad file, a `--ratio` that does not sum to 1, a column-count
+mismatch) exits 2 with one explanatory line instead of a traceback.
 
 ## End-to-end pipeline
 
@@ -78,25 +110,47 @@ the shared style: headless Agg backend, a colorblind-safe Okabe-Ito palette,
 constrained layout, 300 dpi, and a single `save_fig` helper. All new figures use
 the object-oriented matplotlib API (`fig, ax = plt.subplots()`).
 
-`scripts/run_full_pipeline.py` additionally writes three figures and embeds them
-in `outputs/report.md` (CTR lift with CI, segment forest plot, novelty trend).
+`scripts/sequential_ab_testing.py` writes two more charts on its own `main()`
+(`sequential_savings_by_test_type.png`, `sequential_largest_mde.png`), which is
+why a fully-populated `plots/` holds 22 files. Those two stay on plotnine and
+keep their ggplot theme; matplotlib is used for the rest of the gallery.
 
-The two sequential-testing charts in `sequential_ab_testing.py` stay on
-plotnine and keep their ggplot theme; matplotlib is used for the rest of the
-gallery.
+`scripts/run_full_pipeline.py` additionally writes three figures
+(`pipeline_ctr_ci.png`, `pipeline_segments.png`, `pipeline_novelty.png`) and
+embeds them in `outputs/report.md`.
 
 ## Testing philosophy
 
 The `tests/` suite re-runs every calibration with assertions:
 
 - Type I error ≈ α (± tolerance) for each method under its null
-- CI coverage ≈ 95% for the bootstrap
+- CI coverage ≈ 95% for the bootstrap, and the BCa interval matches
+  `scipy.stats.bootstrap(method="bca")` to within a few percent of its width
 - naive peeking inflated, always-valid / alpha-spending controlled
 - naive per-unit ratio SE inaccurate, delta-method SE accurate
-- correctness on known-answer fixtures (SRM splits, segment uplifts, etc.)
+- Bonferroni holds FWER at α; BH holds FDR at α *on a mixed design* (an all-null
+  design cannot show FDR, because there every rejection is a false discovery)
+  while rejecting more true alternatives than Bonferroni
+- the per-segment HTE confidence intervals are calibrated under a true null
+  (~5% exclusion rate), which pins the SE to the fitted model
+- correctness on known-answer fixtures: sample-size closed forms (3024 / 3839 /
+  393), SRM splits, segment uplifts, CLI JSON invariants
 
-Run with `uv run pytest`. CI (`.github/workflows/ci.yml`) runs ruff + pytest on
-push.
+Run with `uv run pytest`. CI (`.github/workflows/ci.yml`) does a frozen install,
+ruff check + format check, the suite, then an end-to-end pipeline smoke run.
+
+## Limitations & scope
+
+- Everything runs on **synthetic** data from known DGPs. The calibrations are
+  honest about the generating process — real traffic is not: no interference
+  between users, no bots, no delayed conversions, no logging loss.
+- These are single-experiment tools, not an experimentation platform: there is
+  no assignment service, metric-definition store, or guardrail monitoring here.
+- The Bayesian module is analytic conjugate (Beta-Binomial / Normal-Normal); it
+  does not cover hierarchical or time-varying priors.
+- `outputs/report.md` and the three `pipeline_*.png` figures are committed so the
+  report renders on GitHub. Everything else under `plots/` is a regenerated
+  artifact and is gitignored — regenerate it with `scripts/make_figures.py`.
 
 ## Layout
 
@@ -105,5 +159,6 @@ scripts/            method modules (one topic each) + end-to-end pipeline
 scripts/plotting.py shared matplotlib style + save_fig helper
 scripts/make_figures.py  full figure gallery (one function per module)
 tests/              calibration test suite
-plots/  outputs/    generated artifacts (gitignored)
+data/               small committed CSV fixture used by the README examples
+plots/  outputs/    generated artifacts (only report.md + pipeline_*.png committed)
 ```

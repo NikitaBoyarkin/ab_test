@@ -30,7 +30,7 @@ A/B Testing Methodology Toolkit — эмпирический, калиброво
 - **Стратегическая важность:** методологическая грамотность в A/B-тестировании — ключевая компетенция data-аналитика; проект демонстрирует глубину понимания, а не только умение вызывать `scipy.stats`.
 
 ### Почему решать сейчас
-Проект уже реализован (15 модулей, тесты, CI) и используется как портфельный кейс. PRD фиксирует текущее состояние как контракт и задаёт roadmap развития: новые методы, UX/документация, интеграции.
+Проект уже реализован (18 модулей, тесты, CI) и используется как портфельный кейс. PRD фиксирует текущее состояние как контракт и задаёт roadmap развития: новые методы, UX/документация, интеграции.
 
 ## 3. Goals & Success Metrics
 
@@ -45,7 +45,7 @@ A/B Testing Methodology Toolkit — эмпирический, калиброво
 ### Goal 2: Покрытие методологии
 - **Описание:** покрытие канонической литературы по A/B-тестированию.
 - **Метрика:** количество модулей-методов.
-- **Baseline:** 15 модулей.
+- **Baseline:** 18 модулей.
 - **Target:** 20+ модулей (stratified, ML-based CUPED, variance reduction для ratio, power-анализ для sequential).
 - **Срок:** 3–6 месяцев.
 - **Метод измерения:** инвентарь `scripts/`.
@@ -232,10 +232,10 @@ A/B Testing Methodology Toolkit — эмпирический, калиброво
 **Описание:** расширение покрытия методологии.
 
 **Acceptance Criteria:**
-- [ ] Stratified sampling / post-stratification для снижения дисперсии.
-- [ ] ML-based CUPED (модель на pre-period ковариатах).
-- [ ] Variance reduction для ratio-метрик.
-- [ ] Каждый новый метод проходит A/A-проверку и power-калибровку.
+- [x] Stratified sampling / post-stratification для снижения дисперсии.
+- [x] ML-based CUPED (модель на pre-period ковариатах).
+- [x] Variance reduction для ratio-метрик.
+- [x] Каждый новый метод проходит A/A-проверку и power-калибровку.
 
 **Dependencies:** REQ-004, REQ-012
 
@@ -243,8 +243,8 @@ A/B Testing Methodology Toolkit — эмпирический, калиброво
 **Описание:** единый CLI для запуска модулей без знания Python.
 
 **Acceptance Criteria:**
-- [x] `abtest srm --counts 1000 1100` возвращает вердикт.
-- [x] `abtest pipeline --data data.csv` запускает end-to-end флоу.
+- [x] `uv run python scripts/cli.py srm --counts 1000 1100` возвращает вердикт.
+- [x] `uv run python scripts/cli.py pipeline --data data.csv` запускает end-to-end флоу.
 - [x] `--help` документирует все команды.
 - [x] Выходной формат стабилен (JSON/markdown).
 
@@ -351,10 +351,10 @@ plots/  outputs/    генерируемые артефакты (gitignored)
 ### Phase 2: Новые методы (Week 3-6)
 **Goal:** расширить покрытие методологии.
 **Tasks:**
-- [ ] Task 2.1: Stratified / post-stratification (REQ-014) — Medium (6h)
-- [ ] Task 2.2: ML-based CUPED (REQ-014) — Medium (8h)
-- [ ] Task 2.3: Variance reduction для ratio (REQ-014) — Medium (6h)
-- [ ] Task 2.4: Калибровочные тесты на каждый новый метод — Medium (6h)
+- [x] Task 2.1: Stratified / post-stratification (REQ-014) — Medium (6h)
+- [x] Task 2.2: ML-based CUPED (REQ-014) — Medium (8h)
+- [x] Task 2.3: Variance reduction для ratio (REQ-014) — Medium (6h)
+- [x] Task 2.4: Калибровочные тесты на каждый новый метод — Medium (6h)
 **Validation Checkpoint:** каждый новый метод проходит A/A-проверку и power-калибровку; покрытие 18+ модулей.
 
 ### Phase 3: UX и документация (Week 7-8)

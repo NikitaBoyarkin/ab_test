@@ -18,7 +18,7 @@ jobs:
         run: uv python install 3.12
 
       - name: Install dependencies
-        run: uv sync --all-groups
+        run: uv sync --frozen --all-groups
 
       - name: Lint
         run: uv run ruff check .
@@ -28,3 +28,6 @@ jobs:
 
       - name: Test
         run: uv run pytest -q
+
+      - name: End-to-end pipeline smoke
+        run: uv run python scripts/run_full_pipeline.py

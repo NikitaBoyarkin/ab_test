@@ -24,3 +24,16 @@ def test_power_at_own_sample_size_about_80pct():
     n = ss.two_proportion(0.10, 0.02)
     p = ss.power_two_proportion(0.10, 0.02, n)
     assert 0.75 <= p <= 0.85
+
+
+def test_known_sample_size_values():
+    """Pin the closed-form answers, not just monotonicity.
+
+    Standard two-proportion sizing for 10% baseline -> 12% (2pp absolute lift),
+    80% power: 3024 per arm one-tailed, 3839 two-tailed. Two-sample mean test
+    at d = 0.2: 393 per arm. A formula that is monotone but wrong slips past the
+    other tests in this file; these numbers do not move.
+    """
+    assert ss.two_proportion(0.10, 0.02) == 3024
+    assert ss.two_proportion(0.10, 0.02, one_tail=False) == 3839
+    assert ss.two_mean(effect_size=0.2, sd=1.0) == 393

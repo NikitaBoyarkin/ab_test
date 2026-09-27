@@ -26,6 +26,19 @@ def test_variance_reduction_matches_theory():
     assert 0.08 <= reduction <= 0.20, f"reduction={reduction:.2f}, theory ~ rho^4=0.13"
 
 
+def test_constant_covariate_gives_no_adjustment():
+    """A covariate with zero variance carries no information: theta = 0, Y unadjusted.
+
+    Without the guard theta is 0/0 -> nan, and the nan silently propagates into
+    the adjusted outcomes and every downstream SE.
+    """
+    y = np.random.default_rng(0).normal(1.0, 1.0, 200)
+    x = np.ones(200)
+    theta = cuped.cuped_theta(y, x)
+    assert theta == 0.0
+    np.testing.assert_allclose(cuped.cuped_adjust(y, x, theta), y)
+
+
 def test_type1_stays_calibrated():
     n_sims = 200
     t1_naive = t1_cuped = 0

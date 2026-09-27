@@ -48,4 +48,12 @@ def test_pipeline_runs(capsys, tmp_path):
     df.to_csv(tmp_path / "exp.csv", index=False)
     out = _run(capsys, ["pipeline", "--data", str(tmp_path / "exp.csv")])
     assert {"srm", "cuped", "ratio", "segments", "trend"} <= set(out)
-    assert out["ratio"]["significant"] in (True, False)
+    ratio = out["ratio"]
+    assert 0.0 <= ratio["p_value"] <= 1.0
+    # the point estimate must be the difference of the two arm ratios, and the
+    # verdict must agree with the reported interval -- a `in (True, False)` check
+    # accepted any value including a corrupted one
+    assert abs(ratio["diff"] - (ratio["ratio_b"] - ratio["ratio_a"])) < 1e-12
+    assert ratio["significant"] == (not (ratio["ci_low"] <= 0 <= ratio["ci_high"]))
+    # balanced synthetic assignment -> no SRM on this fixture
+    assert out["srm"]["srm_detected"] is False
