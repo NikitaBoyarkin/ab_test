@@ -1,5 +1,34 @@
 # A/B Testing Methodology Toolkit
 
+> CUPED removes **17.7%** of the variance on the demo experiment; the delta-method CTR lift (**+0.51pp**) is significant at p < 0.0001 — every calibration re-run as a test.
+
+## Navigation
+- 🌐 [Portfolio site](https://nikitaboyarkin.github.io)
+- 🏦 [Flagship case: Volta neobank](https://github.com/NikitaBoyarkin/volta-banking)
+- 🧪 Related: [ab_test](https://github.com/NikitaBoyarkin/ab_test) · [causal-uplift](https://github.com/NikitaBoyarkin/causal-uplift) · [browser-mini-games](https://github.com/NikitaBoyarkin/browser-mini-games)
+
+**On this page:** [Situation](#situation) · [Task](#task) · [Actions](#actions) · [Result](#result) · [Headline results](#headline-results) · [Quickstart](#quickstart) · [Modules](#modules) · [CLI](#cli) · [Testing philosophy](#testing-philosophy) · [Limitations & scope](#limitations--scope) · [Layout](#layout)
+
+## Situation
+A/B test methods are only as good as their Type I error under the null and their power under a real effect. Asymptotic promises are not evidence: a method that is not calibrated can pass a check it should fail, and a segment can look significant only because it was tested many times. Teams that ship experiments need that calibration verified, not assumed.
+
+## Task
+Implement a set of calibration-driven A/B testing methods from the primary literature, and re-run each method's own calibration as a test-suite assertion rather than trusting the asymptotic claim.
+
+## Actions
+- Implement the core estimators: SRM χ², CUPED/CUPAC variance reduction, and the delta-method for ratio metrics (`ΣY/ΣX`).
+- Add sequential machinery — alpha-spending boundaries, always-valid mSPRT, and Evan Miller's sequential rule.
+- Cover inference: analytic Bayesian A/B, bootstrap CIs (percentile + BCa), heterogeneous treatment effects, and FWER/FDR correction.
+- Model time and design: novelty/primacy detection and cluster/switchback designs with cluster-robust SE.
+- Re-run every calibration as an assertion — Type I, power, CI coverage, FWER/FDR — plus a generic DGP simulator.
+
+## Result
+- **17.7%** — variance removed by CUPED on the demo (SE 0.00360 → 0.00327).
+- **+0.51pp** — delta-method CTR lift (0.0499 → 0.0550), significant at p < 0.0001.
+- **p = 0.8376** — SRM χ² is clean (A 20,979 / B 21,021): no bucketing bug.
+- **all p_adj > 0.32** — no segment differs once BH correction is applied.
+- **3024 / 3839 / 393** — sample-size closed forms reproduced on known-answer fixtures.
+
 Empirical, calibration-driven A/B testing methods, implemented from the primary
 literature and validated by simulation.
 
@@ -37,6 +66,7 @@ uv run ruff check .           # lint
 uv run python scripts/run_full_pipeline.py   # end-to-end demo -> outputs/report.md
 uv run python scripts/make_figures.py        # full matplotlib figure gallery -> plots/
 uv run python scripts/cli.py --help          # CLI: run any method from the terminal
+uv run python examples/01_srm_test.py        # scenario-driven examples -> examples/
 ```
 
 Requires Python >= 3.11. Managed with [uv](https://docs.astral.sh/uv/).
@@ -63,6 +93,11 @@ Requires Python >= 3.11. Managed with [uv](https://docs.astral.sh/uv/).
 | `scripts/novelty_primacy.py` | Time-varying effects | treat×day interaction detects novelty decay / primacy growth | — |
 | `scripts/switchback.py` | Cluster & switchback designs | cluster-robust SE; naive over-/under-rejects; carryover bias | cluster-robust variance |
 | `scripts/test_simulator.py` | Generic test calibration | plug any DGP + test → empirical Type I and power curve | — |
+
+Every method also has a runnable, scenario-driven example in
+[`examples/`](examples/README.md) — one `.py` per module, each ending in a
+plain-text `VERDICT:` line. The module demos print calibration; the examples
+print one decision.
 
 ## CLI
 
@@ -159,6 +194,7 @@ scripts/            method modules (one topic each) + end-to-end pipeline
 scripts/plotting.py shared matplotlib style + save_fig helper
 scripts/make_figures.py  full figure gallery (one function per module)
 tests/              calibration test suite
+examples/           runnable .py example per module (index: examples/README.md)
 data/               small committed CSV fixture used by the README examples
 plots/  outputs/    generated artifacts (only report.md + pipeline_*.png committed)
 ```
