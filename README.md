@@ -52,6 +52,13 @@ synthetic experiment (42,000 users, 21 days, A = 20,979 / B = 21,021) and writes
 | Segment heterogeneity (BH-corrected) | mobile +0.0015, desktop −0.0001, tablet −0.0128 | no segment differs once correction is applied (all p_adj > 0.32) |
 | Novelty / primacy | treat×day +0.00065, p = 0.2714 | no time trend — the effect is stable |
 
+**Source of these numbers.** They come from the full pipeline on the default
+**42,000-user DGP** (`scripts/run_full_pipeline.py`), **not** from the committed
+`data/experiment_sample.csv`. That CSV is a small (600-user) demo input in the same
+schema — running the pipeline on it gives a much smaller, non-significant effect
+(CTR **+0.37pp**, p = 0.207; CUPED removes **14.9%** of the variance). Reproduce the
+table above by running the pipeline, not the fixture.
+
 The point of the demo is that each step can *fail loudly*: an SRM check that
 fires, a CUPED adjustment that does not pay for itself, a segment that is only
 significant before correction.
