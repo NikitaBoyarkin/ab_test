@@ -7,6 +7,8 @@
 - 🏦 [Flagship case: Volta neobank](https://github.com/NikitaBoyarkin/volta-banking)
 - 🧪 Related: [ab_test](https://github.com/NikitaBoyarkin/ab_test) · [causal-uplift](https://github.com/NikitaBoyarkin/causal-uplift) · [browser-mini-games](https://github.com/NikitaBoyarkin/browser-mini-games)
 
+**▶ [Diagram: A/B testing methodology toolkit](docs/diagrams/ab-test.html)** — opens in a browser, no install, no build
+
 **On this page:** [Situation](#situation) · [Task](#task) · [Actions](#actions) · [Result](#result) · [Headline results](#headline-results) · [Quickstart](#quickstart) · [Modules](#modules) · [CLI](#cli) · [Testing philosophy](#testing-philosophy) · [Limitations & scope](#limitations--scope) · [Layout](#layout)
 
 ## Situation
