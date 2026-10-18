@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import bootstrap_ci as bc
 import numpy as np
+import pytest
 
 
 def test_bca_mean_coverage():
@@ -36,6 +37,27 @@ def test_median_and_quantile_no_normal_theory():
     q90 = bc.bootstrap_diff(a, b, statistic=lambda x: np.quantile(x, 0.9), n_boot=500, seed=3)
     assert med["ci_low"] < med["ci_high"]
     assert q90["ci_low"] < q90["ci_high"]
+
+
+def test_bca_raises_on_tied_statistic():
+    """A tied statistic has no BCa interval -- fail loudly, never with NaN bounds.
+
+    Regression guard: a zero-inflated metric (more than half the values
+    identical, so the median is tied in every leave-one-out sample) used to
+    surface as `ValueError: Quantiles must be in the range [0, 1]` from inside
+    np.quantile, with nothing saying why.
+    """
+    rng = np.random.default_rng(0)
+    a = np.where(rng.random(400) < 0.6, 0.0, rng.lognormal(2.0, 1.0, 400))
+    b = np.where(rng.random(400) < 0.6, 0.0, rng.lognormal(2.1, 1.0, 400))
+    assert np.median(a) == 0.0 and np.median(b) == 0.0  # premise: the median is tied
+
+    with pytest.raises(ValueError, match="BCa is undefined"):
+        bc.bootstrap_diff(a, b, statistic=np.median, n_boot=500, seed=1)
+
+    # percentile needs no jackknife, so the same call succeeds
+    pct = bc.bootstrap_diff(a, b, statistic=np.median, n_boot=500, method="percentile", seed=1)
+    assert pct["ci_low"] <= pct["ci_high"]
 
 
 def test_bca_matches_scipy_golden():

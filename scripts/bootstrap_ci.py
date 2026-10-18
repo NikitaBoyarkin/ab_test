@@ -10,6 +10,13 @@ Two flavours:
   - BCa: bias-corrected and accelerated — better coverage when the bootstrap
     distribution is skewed (the default here for the difference of means).
 
+BCa is undefined when the statistic is tied: the jackknife acceleration becomes
+0/0, so the correction has nothing to estimate from. That is not exotic — the
+median of a metric with more than half identical values (zero-inflated revenue,
+a mostly-zero count) is tied in every leave-one-out sample. `bootstrap_diff`
+raises a ValueError naming the cause instead of returning NaN bounds; pass
+method="percentile" for those metrics.
+
 For the difference of group statistics, resample each group independently and
 take the difference of bootstrap replicates.
 """
@@ -58,6 +65,24 @@ def bootstrap_diff(a, b, statistic=np.mean, n_boot=2000, alpha=0.05, method="bca
     }
 
 
+_BCA_UNDEFINED = (
+    "BCa is undefined for this statistic ({why}), so there is nothing to correct "
+    'with. Pass method="percentile", which is always defined.'
+)
+_WHY_Z0 = (
+    "every bootstrap replicate falls on one side of the point estimate, so the "
+    "bias correction z0 is infinite"
+)
+_WHY_TIED = (
+    "every leave-one-out estimate equals the full-sample estimate, so the "
+    "jackknife acceleration is 0/0 -- the statistic is tied, e.g. the median of "
+    "a metric with more than half identical values"
+)
+_WHY_UNSTABLE = (
+    "the acceleration is too large for the bias correction, so the adjusted quantile leaves [0, 1]"
+)
+
+
 def _bca_interval(boot, a, b, statistic, point, alpha):
     """Bias-corrected accelerated bootstrap interval for a difference.
 
@@ -74,7 +99,10 @@ def _bca_interval(boot, a, b, statistic, point, alpha):
     against scipy.stats.bootstrap(method="bca") to shift the interval.
     """
     # bias-correction z0 from proportion of boot replicates < point
-    z0 = stats.norm.ppf((boot < point).mean())
+    frac = (boot < point).mean()
+    if frac in (0.0, 1.0):
+        raise ValueError(_BCA_UNDEFINED.format(why=_WHY_Z0))
+    z0 = stats.norm.ppf(frac)
     th = np.empty(len(a) + len(b))
     stat_b = statistic(b)
     for i in range(len(a)):
@@ -83,11 +111,18 @@ def _bca_interval(boot, a, b, statistic, point, alpha):
     for j in range(len(b)):
         th[len(a) + j] = statistic(np.delete(b, j)) - stat_a
     u = th.mean() - th
-    acc = np.sum(u**3) / (6.0 * np.sum(u**2) ** 1.5)
+    var_u = np.sum(u**2)
+    if var_u == 0:  # 0/0 acceleration -- checked here so acc is never nan
+        raise ValueError(_BCA_UNDEFINED.format(why=_WHY_TIED))
+    acc = np.sum(u**3) / (6.0 * var_u**1.5)
     z_lo = stats.norm.ppf(alpha / 2)
     z_hi = stats.norm.ppf(1 - alpha / 2)
     a1 = stats.norm.cdf(z0 + (z0 + z_lo) / (1 - acc * (z0 + z_lo)))
     a2 = stats.norm.cdf(z0 + (z0 + z_hi) / (1 - acc * (z0 + z_hi)))
+    # np.quantile rejects a probability outside [0, 1] with a message that says
+    # nothing about the cause, so fail here instead while the cause is known.
+    if not (np.isfinite(a1) and np.isfinite(a2) and 0 <= a1 <= 1 and 0 <= a2 <= 1):
+        raise ValueError(_BCA_UNDEFINED.format(why=_WHY_UNSTABLE))
     return np.quantile(boot, [a1, a2])
 
 
