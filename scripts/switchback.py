@@ -17,7 +17,10 @@ rejects depends on whether treatment varies *within* a cluster:
      period fixed effects (smaller, correct SE, earlier detection).
 
 Carryover (treatment in period p leaks into p+1) biases the point estimate; SE
-cannot fix it -> use a washout period or drop the first period of each cluster.
+cannot fix it. Dropping the first period of each cluster does not help either --
+carryover enters every period after the first, so that only discards the one
+uncontaminated observation -> use a washout period, or re-randomize treatment
+every period.
 """
 
 import warnings
@@ -152,7 +155,21 @@ def main():
             ests.append(ols_effect_cluster_robust(d)["coef"])
         print(f"  {carry:<12.1f} {np.mean(ests):>11.3f} {0.0:>11}")
     print("  cluster-robust SE controls Type I error but does NOT fix carryover bias.")
-    print("  Mitigate: washout period, or drop the first period of each cluster.")
+
+    # "Drop the first period of each cluster" is the usual mitigation and it does
+    # NOT work here: carryover enters every period after the first, so dropping
+    # the first only removes the one uncontaminated observation.
+    full, dropped = [], []
+    for s in range(200):
+        d = simulate_switchback(effect=0.0, carryover=0.5, block_size=2, seed=s)
+        full.append(ols_effect_cluster_robust(d)["coef"])
+        kept = d[d["period"] > d.groupby("cluster")["period"].transform("min")]
+        dropped.append(ols_effect_cluster_robust(kept)["coef"])
+    print(
+        f"  at carryover=0.5: full sample {np.mean(full):.3f} | "
+        f"drop first period {np.mean(dropped):.3f} (no better)"
+    )
+    print("  Mitigate: washout period, or re-randomize treatment every period.")
 
 
 if __name__ == "__main__":
