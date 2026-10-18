@@ -19,7 +19,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy import stats
 
 warnings.filterwarnings("ignore")
 
@@ -132,7 +131,10 @@ def fig2_conversion_by_segment() -> None:
     )
     ax.axhline(overall, color=C_MUTED, linestyle="--", label=f"overall mean = {overall:.3f}")
     ax.bar_label(
-        bars, labels=[f"{v:.3f}\n(n={n})" for v, n in zip(g.conv, g.n)], padding=3, fontsize=10
+        bars,
+        labels=[f"{v:.3f}\n(n={n})" for v, n in zip(g.conv, g.n, strict=False)],
+        padding=3,
+        fontsize=10,
     )
     ax.set(xlabel="Segment", ylabel="Conversion rate", title="Conversion rate by segment (sorted)")
     ax.set_ylim(0, 0.27)
@@ -163,7 +165,7 @@ def fig3_segment_effect() -> None:
     colors = [C_TREAT if v > 0 else C_CONTROL for v in ates]
     ax.barh(segs, ates * 100, xerr=errs * 100, color=colors, capsize=6, height=0.55)
     ax.axvline(0, color="black", linewidth=1)
-    for i, (v, e) in enumerate(zip(ates, errs)):
+    for i, (v, _e) in enumerate(zip(ates, errs, strict=False)):
         ax.annotate(
             f"{v * 100:+.1f}pp",
             (v * 100, i),
@@ -250,7 +252,7 @@ def fig5_ctr_decision() -> None:
     x = np.arange(2)
     ax.bar(x - 0.2, [300, n_a], width=0.4, color=C_CONTROL, label="control")
     ax.bar(x + 0.2, [300, n_b], width=0.4, color=C_TREAT, label="treatment")
-    for xi, (a, b) in zip(x, [(300, 300), (n_a, n_b)]):
+    for xi, (a, b) in zip(x, [(300, 300), (n_a, n_b)], strict=False):
         ax.annotate(f"{a}", (xi - 0.2, a), ha="center", va="bottom", fontsize=10)
         ax.annotate(f"{b}", (xi + 0.2, b), ha="center", va="bottom", fontsize=10)
     ax.set(

@@ -525,7 +525,7 @@ def figure_switchback() -> Path:
         ests = [
             switchback.ols_effect_cluster_robust(
                 switchback.simulate_switchback(effect=0.0, carryover=carry, block_size=2, seed=s)
-            )[0]
+            )["coef"]
             for s in range(120)
         ]
         means.append(float(np.mean(ests)))
