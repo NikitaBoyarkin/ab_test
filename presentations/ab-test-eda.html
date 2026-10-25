@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A/B-эксперимент: EDA 600 пользователей</title>
+<style>
+  :root{
+    --bg:#0f172a;
+    --fg:#e2e8f0;
+    --muted:#94a3b8;
+    --accent:#38bdf8;
+    --card:#1e293b;
+    --line:#334155;
+    --good:#34d399;
+    --warn:#fbbf24;
+    --bad:#f87171;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .deck{display:flex;overflow-x:auto;overflow-y:hidden;
+    scroll-snap-type:x mandatory;scroll-behavior:smooth;height:100vh;
+    scrollbar-width:none;-ms-overflow-style:none}
+  .deck::-webkit-scrollbar{display:none}
+
+  .slide{flex:0 0 100vw;width:100vw;height:100vh;scroll-snap-align:start;
+    display:flex;flex-direction:column;justify-content:center;
+    padding:clamp(1.4rem,4vh,3rem) clamp(1.6rem,6vw,6rem);
+    overflow:hidden}
+
+  h1{font-size:clamp(1.9rem,3.4vw,3rem);line-height:1.15;color:var(--accent);margin-bottom:.7rem}
+  h2{font-size:clamp(1.15rem,1.9vw,1.6rem);line-height:1.25;color:var(--accent);
+    margin-bottom:1.1rem;padding-bottom:.45rem;border-bottom:1px solid var(--line)}
+  .kicker{color:var(--muted);text-transform:uppercase;letter-spacing:.14em;
+    font-size:.72rem;margin-bottom:.9rem}
+  .sub{color:var(--muted);font-size:clamp(.9rem,1.25vw,1.05rem);line-height:1.55;max-width:60ch}
+  .sub b{color:var(--fg);font-weight:600}
+  code{font-family:var(--mono);font-size:.92em;background:var(--card);
+    border:1px solid var(--line);border-radius:5px;padding:.05em .35em;color:#bae6fd}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    gap:.85rem;margin-top:1.2rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:1rem 1.1rem}
+  .card .k{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  .card .v{font-size:clamp(1.15rem,2.1vw,1.7rem);font-weight:700;color:var(--accent);
+    margin-top:.3rem;line-height:1.15}
+  .card .d{font-size:.78rem;color:var(--muted);margin-top:.35rem;line-height:1.4}
+  .card.good .v{color:var(--good)}
+  .card.bad .v{color:var(--bad)}
+  .card.warn .v{color:var(--warn)}
+
+  .row{display:flex;gap:clamp(1rem,2.4vw,2.2rem);align-items:center;
+    justify-content:space-between;flex:0 1 auto;min-height:0}
+  .row .fig{flex:0 1 auto;max-width:52%}
+  .row .body{flex:1 1 42%;min-width:0}
+  .col{display:flex;flex-direction:column;gap:.55rem}
+  .fig{max-height:58vh;max-width:100%;object-fit:contain;display:block;
+    border-radius:10px;border:1px solid var(--line);background:#0b1220}
+
+  ul{list-style:none;display:flex;flex-direction:column;gap:.55rem}
+  li{font-size:clamp(.82rem,1.15vw,.98rem);line-height:1.45;color:var(--fg);
+    border-left:3px solid var(--accent);padding-left:.8rem}
+  li .m{color:var(--muted)}
+  li b{color:var(--accent);font-weight:600}
+
+  table{border-collapse:collapse;width:100%;margin-top:1rem;font-size:clamp(.78rem,1.1vw,.95rem)}
+  th,td{text-align:left;padding:.5rem .7rem;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;font-size:.78em;text-transform:uppercase;letter-spacing:.06em}
+  td.num{font-variant-numeric:tabular-nums;color:var(--accent);font-weight:600}
+  tbody tr:last-child td{border-bottom:none}
+
+  .note{margin-top:1rem;font-size:clamp(.72rem,1vw,.84rem);color:var(--muted);line-height:1.5}
+  .note b{color:var(--warn);font-weight:600}
+  .verdict{margin-top:1.1rem;font-size:clamp(.9rem,1.3vw,1.1rem);line-height:1.5}
+  .verdict .tag{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;padding:.15em .6em;border-radius:999px;margin-right:.5rem;
+    vertical-align:middle}
+  .tag.ns{background:rgba(248,113,113,.14);color:var(--bad);border:1px solid rgba(248,113,113,.35)}
+  .tag.ok{background:rgba(52,211,153,.12);color:var(--good);border:1px solid rgba(52,211,153,.3)}
+
+  .statement{font-size:clamp(1.3rem,2.6vw,2.1rem);line-height:1.35;color:var(--fg);
+    max-width:22ch;font-weight:600}
+  .statement em{color:var(--accent);font-style:normal}
+
+  .nav{position:fixed;right:1.1rem;bottom:.9rem;z-index:10;
+    color:var(--muted);font-size:.75rem;font-variant-numeric:tabular-nums;
+    background:rgba(15,23,42,.85);border:1px solid var(--line);border-radius:999px;
+    padding:.3rem .8rem;letter-spacing:.04em;pointer-events:none}
+  .nav .arrows{color:var(--accent);margin-left:.35rem}
+
+  @media (max-width:820px){
+    .row{flex-direction:column;align-items:flex-start;gap:.8rem}
+    .row .fig{max-width:100%;max-height:34vh}
+    .row .body{flex:1 1 auto}
+  }
+</style>
+</head>
+<body>
+
+<main class="deck">
+
+  <section class="slide">
+    <div class="kicker">A/B-эксперимент · EDA · Портфолио</div>
+    <h1>A/B-эксперимент:<br>что показывают 600 пользователей</h1>
+    <p class="sub">EDA фикстура <code>data/experiment_sample.csv</code> — 600 строк × 8 колонок,
+      3 относительных дня, 1 строка = 1 пользователь.</p>
+    <p class="sub" style="margin-top:.6rem">Дата анализа — 2026-10-13.</p>
+  </section>
+
+  <section class="slide">
+    <h2>Данные: что лежит в файле</h2>
+    <p class="sub">8 колонок одной строкой:</p>
+    <p class="sub" style="margin-top:.4rem;font-family:var(--mono);font-size:.85rem;color:#bae6fd">
+      day · segment · treat · conv · pre_conv · pre_sessions · impressions · clicks</p>
+    <div class="grid">
+      <div class="card"><div class="k">Объём</div><div class="v">600 × 8</div><div class="d">строк × колонок</div></div>
+      <div class="card"><div class="k">Конверсия</div><div class="v">17.17%</div><div class="d">по всей выборке</div></div>
+      <div class="card"><div class="k">Дни 0 / 1 / 2</div><div class="v">200</div><div class="d">пользователей в каждом дне</div></div>
+      <div class="card bad"><div class="k">user_id</div><div class="v">нет</div><div class="d">в схеме отсутствует</div></div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <h2>Качество данных: файл чистый, но не идеальный</h2>
+    <div class="row">
+      <img class="fig" src="../reports/eda/figures/fig1_distributions.png" alt="Распределения метрик эксперимента">
+      <div class="body">
+        <ul>
+          <li><b>0</b> пропусков во всех 8 колонках.</li>
+          <li><b>clicks ≤ impressions</b> — в <b>100%</b> строк.</li>
+          <li><b>3 полных дубликата</b> (0.5%) — совпадение профилей, а не ошибка ввода.</li>
+          <li><b>5.0%</b> IQR-выбросов в <code>impressions</code> — реальные heavy-users:
+              медиана 34 против среднего 39.7.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <h2>SRM: бакетинг чистый</h2>
+    <div class="grid">
+      <div class="card"><div class="k">Control</div><div class="v">292</div><div class="d">пользователей</div></div>
+      <div class="card"><div class="k">Treatment</div><div class="v">308</div><div class="d">пользователей</div></div>
+      <div class="card good"><div class="k">χ² p-value</div><div class="v">0.514</div><div class="d">α = 0.001</div></div>
+    </div>
+    <p class="verdict">Расщепление 292 / 308 неотличимо от равного — рандомизация не сломана, эффект есть смысл считать.</p>
+  </section>
+
+  <section class="slide">
+    <h2>Главный эффект: конверсия</h2>
+    <div class="grid">
+      <div class="card"><div class="k">Control</div><div class="v">15.75%</div><div class="d">конверсия</div></div>
+      <div class="card"><div class="k">Treatment</div><div class="v">18.51%</div><div class="d">конверсия</div></div>
+      <div class="card"><div class="k">Лифт</div><div class="v">+2.75pp</div><div class="d">абсолютный прирост</div></div>
+      <div class="card bad"><div class="k">p-value</div><div class="v">0.370</div><div class="d">незначимо</div></div>
+    </div>
+    <p class="note">95% CI лифта: <b>[−3.27, +8.78]</b> — ноль внутри интервала.</p>
+    <p class="verdict"><span class="tag ns">незначимо</span>Точечная оценка положительна, но данные не отличают её от нуля.</p>
+  </section>
+
+  <section class="slide">
+    <h2>CTR: ratio-метрика требует delta-method</h2>
+    <div class="row">
+      <img class="fig" src="../reports/eda/figures/fig5_ctr_decision.png" alt="CTR: delta-method против наивного per-user теста">
+      <div class="body">
+        <ul>
+          <li><b>delta-method: +0.37pp</b> (0.0501 → 0.0538), CI [−0.21, +0.95], <b>p = 0.207</b>.</li>
+          <li>Наивный per-user тест на той же метрике даёт <b>+0.76pp</b> — вдвое больше.</li>
+          <li>Это известное смещение ratio-метрики, а не «более сильный эффект».</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <h2>Сегменты: точечные лифты расходятся</h2>
+    <div class="row">
+      <img class="fig" src="../reports/eda/figures/fig2_conversion_by_segment.png" alt="Конверсия по сегментам в обоих рукавах">
+      <div class="body">
+        <table>
+          <thead><tr><th>Сегмент</th><th>ΔCR</th><th>p_adj (BH)</th></tr></thead>
+          <tbody>
+            <tr><td>desktop</td><td class="num">+7.34pp</td><td class="num">0.347</td></tr>
+            <tr><td>mobile</td><td class="num">+3.15pp</td><td class="num">0.541</td></tr>
+            <tr><td>tablet</td><td class="num">−6.25pp</td><td class="num">0.523</td></tr>
+          </tbody>
+        </table>
+        <p class="note">tablet: <b>n = 57 / 69</b> — самая маленькая ячейка.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <h2>Сегменты: почему из этого нельзя таргетировать</h2>
+    <div class="row">
+      <div class="body">
+        <ul>
+          <li>После <b>BH-коррекции ни один сегмент не значим</b> (0.347 / 0.541 / 0.523).</li>
+          <li>Состав сегментов по рукавам совпадает — это <b>не composition-артефакт</b>.</li>
+          <li>Разброс от −6.25pp до +7.34pp при таких n — это шум, а не сигнал.</li>
+        </ul>
+        <p class="verdict"><span class="tag ns">нельзя</span>Таргетировать по этому файлу нельзя.</p>
+      </div>
+      <img class="fig" src="../reports/eda/figures/fig3_segment_effect.png" alt="Эффект по сегментам с доверительными интервалами">
+    </div>
+  </section>
+
+  <section class="slide">
+    <h2>Динамика: затухание — иллюзия описательной статистики</h2>
+    <div class="row">
+      <img class="fig" src="../reports/eda/figures/fig4_daily_trend.png" alt="Дневная конверсия по рукавам">
+      <div class="body">
+        <ul>
+          <li>По дням: treat <b>0.210 → 0.185 → 0.160</b>, control <b>0.140 → 0.163 → 0.170</b> — похоже на затухание.</li>
+          <li>Но <code>treat×day</code> = <b>−4.0pp/день</b>, CI [−11.4, +3.4], <b>p = 0.290</b>.</li>
+          <li>MDE при 80% мощности = <b>10.6pp/день</b>.</li>
+        </ul>
+        <p class="verdict"><span class="tag ns">граница</span>Заявлять можно только «|interaction| ≥ 10.6pp/день исключён».
+          Ни «эффект затухает», ни «эффект стабилен» из файла не следует.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <h2>CUPED: сколько дисперсии снимает пре-метрика</h2>
+    <div class="grid">
+      <div class="card"><div class="k">r(pre_conv, conv)</div><div class="v">0.388</div><div class="d">корреляция пре-метрики с исходом</div></div>
+      <div class="card"><div class="k">Фикстура 600</div><div class="v">14.9%</div><div class="d">снятой дисперсии</div></div>
+      <div class="card"><div class="k">Пайплайн 42 000</div><div class="v">17.7%</div><div class="d">снятой дисперсии</div></div>
+    </div>
+    <p class="verdict">CUPED снижает дисперсию оценки — он не увеличивает сам эффект. На 600 строках выигрыш скромный.</p>
+  </section>
+
+  <section class="slide">
+    <h2>Truth-check: README описывает другой датасет</h2>
+    <div class="grid">
+      <div class="card"><div class="k">CUPED</div><div class="v">17.7%</div><div class="d">на 42 000 юзеров</div></div>
+      <div class="card"><div class="k">CTR</div><div class="v">+0.51pp</div><div class="d">пайплайн; фикстура даёт +0.37pp</div></div>
+      <div class="card"><div class="k">SRM</div><div class="v">p = 0.8376</div><div class="d">пайплайн; фикстура — 0.514</div></div>
+      <div class="card"><div class="k">Sample sizes</div><div class="v">3024 / 3839 / 393</div><div class="d">closed forms из README</div></div>
+    </div>
+    <p class="note">Все <b>6</b> заявленных чисел воспроизводятся — но на датасете 42 000 юзеров, а не на фикстуре 600.
+      README привязывает таблицу к этому DGP явно (README.md:56–61): расхождение объяснимо, но числа
+      относятся к датасету, а не к файлу в репозитории.</p>
+  </section>
+
+  <section class="slide">
+    <h2>Бизнес-слой: три возможных решения</h2>
+    <div class="grid">
+      <div class="card bad"><div class="k">Roll-out</div><div class="v">нельзя</div>
+        <div class="d">CI накрывает −3.27pp: нулевой и вредный эффект не исключены</div></div>
+      <div class="card warn"><div class="k">Hold</div><div class="v">безопасно</div>
+        <div class="d">но теряем лифт, если он реален</div></div>
+      <div class="card good"><div class="k">Powered test</div><div class="v">шаг</div>
+        <div class="d">единственный обоснованный вариант при текущих данных</div></div>
+    </div>
+    <p class="verdict">Выбор не между «плохо» и «хорошо», а между ценой ложного решения и ценой отсрочки.</p>
+  </section>
+
+  <section class="slide">
+    <h2>Цена ошибки</h2>
+    <div class="grid">
+      <div class="card bad"><div class="k">Type I</div><div class="v">100% трафика</div>
+        <div class="d">раскатка нулевого или вредного эффекта; плюс описательное −6.25pp в tablet</div></div>
+      <div class="card warn"><div class="k">Type II</div><div class="v">825 000 ₽/мес</div>
+        <div class="d">потеря лифта N × ΔCR × V — <b>допущение</b>, не данные</div></div>
+      <div class="card"><div class="k">Атрибуция</div><div class="v">+0.51 vs +0.37</div>
+        <div class="d">решение по CTR пайплайна, а не по фикстуру (+0.37pp, n.s.)</div></div>
+    </div>
+    <p class="note">Расчёт Type II: 100 000 юзеров/мес × 300 ₽ за конверсию × 2.75pp = <b>825 000 ₽/мес</b> —
+      это ДОПУЩЕНИЕ о цене и трафике; в файле таких колонок нет.</p>
+  </section>
+
+  <section class="slide">
+    <h2>Сколько стоит снять неопределённость</h2>
+    <table>
+      <thead><tr><th>Лифт</th><th>N на руку</th><th>Всего</th><th>Дней при 200/день</th></tr></thead>
+      <tbody>
+        <tr><td>5.0pp</td><td class="num">934</td><td class="num">1 868</td><td class="num">9</td></tr>
+        <tr><td>2.75pp</td><td class="num">2 943</td><td class="num">5 886</td><td class="num">29</td></tr>
+        <tr><td>1.0pp</td><td class="num">21 364</td><td class="num">42 728</td><td class="num">214</td></tr>
+      </tbody>
+    </table>
+    <p class="note">База 15.753%, α = 0.05 двусторонний, мощность 80%, closed form
+      <code>sample_size.two_proportion</code>.</p>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Решение</div>
+    <p class="statement">Не раскатывать и не <em>отменять</em> — добрать выборку.</p>
+    <p class="sub" style="margin-top:1.4rem">Для лифта 2.75pp нужно <b>~5 900 пользователей</b> —
+      это <b>≈ 29 дней</b> текущего потока (200/день).</p>
+  </section>
+
+  <section class="slide">
+    <h2>Чего эти данные не говорят</h2>
+    <ul>
+      <li>Нет <code>user_id</code> и проверки дублей по ключу — совпадение профилей не доказывает чистоту.</li>
+      <li>Нет календарных дат: выходные и праздники не отделены от эффекта.</li>
+      <li>Нет guardrail-метрик и A/A-калибровки на реальном трафике.</li>
+      <li>CUPAC и HTE-модель не считались; байесовская инференция не запускалась.</li>
+    </ul>
+    <p class="verdict">Граница вывода: файл поддерживает решение «добрать выборку» — и ничего сверх него.</p>
+  </section>
+
+</main>
+
+<div class="nav">слайд <span id="num">1</span> / <span id="total">16</span><span class="arrows">← →</span></div>
+
+<script>
+  var deck = document.querySelector('.deck');
+  var slides = document.querySelectorAll('.slide');
+  var num = document.getElementById('num');
+  document.getElementById('total').textContent = slides.length;
+  function current() {
+    return Math.min(slides.length, Math.round(deck.scrollLeft / window.innerWidth) + 1);
+  }
+  deck.addEventListener('scroll', function () { num.textContent = current(); }, { passive: true });
+  window.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      deck.scrollBy({ left: (e.key === 'ArrowRight' ? 1 : -1) * window.innerWidth, behavior: 'smooth' });
+    }
+  });
+</script>
+
+</body>
+</html>
