@@ -28,6 +28,7 @@ sys.path.insert(0, str(PROJECT / "scripts"))
 import cuped  # noqa: E402
 import delta_method_ratio  # noqa: E402
 import multiple_comparisons  # noqa: E402
+import sample_size  # noqa: E402
 import srm_test  # noqa: E402
 
 
@@ -132,7 +133,47 @@ def fixture_eda(df: pd.DataFrame) -> dict:
     se_b = np.sqrt(s2 * np.linalg.inv(X.T @ X)[3, 3])
     t_stat = float(beta[3] / se_b)
     out["novelty_inter_coef"] = float(beta[3])
+    out["novelty_se"] = float(se_b)
+    t_crit = float(stats.t.ppf(0.975, dof))
+    out["novelty_ci"] = [float(beta[3] - t_crit * se_b), float(beta[3] + t_crit * se_b)]
     out["novelty_p"] = float(2 * (1 - stats.t.cdf(abs(t_stat), dof)))
+    # smallest interaction this fixture could have detected at 80% power
+    out["novelty_mde_80"] = float((stats.norm.ppf(0.975) + stats.norm.ppf(0.80)) * se_b)
+
+    # per-day Welch diff with its own CI — the reason the "novelty shape" is not identifiable
+    daily_diff = []
+    for d, sub in df.groupby("day"):
+        a = sub.loc[sub["treat"] == 0, "conv"].to_numpy(float)
+        b = sub.loc[sub["treat"] == 1, "conv"].to_numpy(float)
+        diff = float(b.mean() - a.mean())
+        se = float(np.sqrt(np.var(a, ddof=1) / len(a) + np.var(b, ddof=1) / len(b)))
+        daily_diff.append(
+            {
+                "day": int(d),
+                "n_control": int(len(a)),
+                "n_treat": int(len(b)),
+                "diff": diff,
+                "se": se,
+                "ci": [float(diff - 1.96 * se), float(diff + 1.96 * se)],
+            }
+        )
+    out["daily_diff"] = daily_diff
+
+    # powered-test sizing via the repo's own closed form (two-sided, 80% power)
+    base = float(df.loc[df["treat"] == 0, "conv"].mean())
+    sizing = []
+    for lift in (0.01, 0.0275, 0.05):
+        n_arm = int(sample_size.two_proportion(base, lift, one_tail=False))
+        sizing.append(
+            {
+                "lift": lift,
+                "base_rate": base,
+                "n_per_arm": n_arm,
+                "total": 2 * n_arm,
+                "days_at_200_per_day": round(2 * n_arm / 200, 1),
+            }
+        )
+    out["sample_size"] = sizing
 
     # Formal checks reused from the project's own modules (fixture, not README DGP)
     n_a, n_b = out["arm_sizes"].get(0), out["arm_sizes"].get(1)
@@ -255,7 +296,26 @@ def main() -> None:
         f"CTR delta: {f['ctr_delta']['ratio_a']:.4f}->{f['ctr_delta']['ratio_b']:.4f} "
         f"diff={f['ctr_delta']['diff']:+.5f} p={f['ctr_delta']['p_value']:.4f} sig={f['ctr_delta']['significant']}"
     )
-    print(f"novelty treat:day={f['novelty_inter_coef']:+.4f} p={f['novelty_p']:.4f}")
+    print(
+        f"novelty treat:day={f['novelty_inter_coef']:+.4f} se={f['novelty_se']:.4f} "
+        f"CI=[{f['novelty_ci'][0]:+.4f},{f['novelty_ci'][1]:+.4f}] p={f['novelty_p']:.4f} "
+        f"MDE80={f['novelty_mde_80']:.4f}"
+    )
+    print(
+        "daily diffs: "
+        + " | ".join(
+            f"day{r['day']} {r['diff'] * 100:+.1f}pp "
+            f"[{r['ci'][0] * 100:+.1f},{r['ci'][1] * 100:+.1f}]"
+            for r in f["daily_diff"]
+        )
+    )
+    print(
+        "powered test: "
+        + " | ".join(
+            f"{r['lift'] * 100:.2f}pp -> {r['n_per_arm']}/arm ({r['days_at_200_per_day']}d)"
+            for r in f["sample_size"]
+        )
+    )
     if "truth_check" in metrics:
         t = metrics["truth_check"]
         print(
