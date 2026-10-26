@@ -23,6 +23,17 @@ def test_large_sample_tiny_leak_detected():
     assert r["srm_detected"]
 
 
+def test_verdict_follows_shipped_alpha_not_five_percent():
+    # p = 0.0124 sits between the conventional 0.05 and the shipped 0.001; every
+    # other fixture is far enough out to pass with SRM_ALPHA mutated to 0.05.
+    r = srm_test.srm_test([5125, 4875], [0.5, 0.5])
+    assert r["p_value"] < 0.05
+    assert r["alpha"] == srm_test.SRM_ALPHA
+    assert not r["srm_detected"]
+
+    assert srm_test.srm_test([5125, 4875], [0.5, 0.5], alpha=0.05)["srm_detected"]
+
+
 def test_expected_ratio_must_sum_to_one():
     with pytest.raises(ValueError):
         srm_test.srm_test([5000, 5000], [0.4, 0.5])

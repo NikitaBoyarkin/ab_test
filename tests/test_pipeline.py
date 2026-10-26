@@ -47,5 +47,7 @@ def test_pipeline_writes_report(tmp_path):
 def test_cuped_reduces_se():
     df = rfp.generate_data(n_days=7, n_per_day=500, seed=3)
     cup = rfp.cuped_calibrate(df)
-    assert 0 <= cup["var_reduction"] <= 1
-    assert cup["se_cuped"] <= cup["se_naive"]
+    # Strict margins on purpose: theta = 0 (CUPED disabled) satisfies
+    # `var_reduction >= 0` and `se_cuped <= se_naive` with exact equality.
+    assert 0.05 < cup["var_reduction"] < 1
+    assert cup["se_cuped"] < 0.99 * cup["se_naive"]
