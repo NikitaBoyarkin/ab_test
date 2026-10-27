@@ -70,8 +70,13 @@ def simulate_cuped(n=2000, effect=0.0, rho=0.6, seed=0):
     return x_pre[:n], y_post[:n], x_pre[n:], y_post[n:]  # (x_a, y_a, x_b, y_b)
 
 
-def welch_mean_test(a, b) -> dict:
-    """Welch two-sample test of mean(b) - mean(a), with the group variances."""
+def welch_mean_test(a, b, alpha: float = 0.05) -> dict:
+    """Welch two-sample test of mean(b) - mean(a), with the group variances.
+
+    `point` is the signed effect b - a, and `reject` is p < alpha, so this fn
+    satisfies the `test_fn(a, b, alpha) -> dict with 'reject'` contract that
+    test_simulator.simulate plugs into.
+    """
     _, p = stats.ttest_ind(a, b, equal_var=False)
     diff = float(np.mean(b) - np.mean(a))
     se = float(np.sqrt(np.var(a, ddof=1) / len(a) + np.var(b, ddof=1) / len(b)))
@@ -82,6 +87,7 @@ def welch_mean_test(a, b) -> dict:
         "ci_low": diff - z * se,
         "ci_high": diff + z * se,
         "p_value": float(p),
+        "reject": bool(float(p) < alpha),
         "var_a": float(np.var(a, ddof=1)),
         "var_b": float(np.var(b, ddof=1)),
     }

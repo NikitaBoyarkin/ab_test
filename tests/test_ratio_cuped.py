@@ -29,6 +29,28 @@ def test_coverage():
     assert 0.90 <= rate <= 0.99, f"coverage = {rate:.3f}, expected ~0.95"
 
 
+def test_known_lift_is_positive():
+    """B87: pin the sign of the effect.
+
+    `significant`, `ci` and `se` are all invariant to flipping `diff`: the CI is
+    centred on diff, so it still straddles or excludes zero exactly as before.
+    Only asserting the sign catches a test that reports the effect backwards.
+    """
+    x_pre_a, y_pre_a, xa, ya = rc.simulate_ratio_cuped(seed=1, rel_lift=0.0)
+    x_pre_b, y_pre_b, xb, yb = rc.simulate_ratio_cuped(seed=2, rel_lift=0.10)
+    res = rc.ratio_cuped_test(xa, ya, xb, yb, x_pre_a, y_pre_a, x_pre_b, y_pre_b)
+    # unadjusted B - A: the fixture must show the lift before the test can pin it
+    raw = yb.mean() / xb.mean() - ya.mean() / xa.mean()
+    assert raw > 0, f"fixture degenerate: raw ratio lift = {raw}"
+    assert res["diff"] > 0, f"diff = {res['diff']}, expected +10% lift in B"
+    assert res["z"] > 0
+    assert np.sign(res["diff"]) == np.sign(raw)
+    # the estimator is roughly the raw difference scaled by 1/mean(X); a sign
+    # flip keeps the magnitude, so bound it too
+    assert 0.5 * raw < res["diff"] < 2.0 * raw, f"diff={res['diff']:.5f}, raw={raw:.5f}"
+    assert res["ci_low"] > 0  # a +10% lift is far from the null here
+
+
 def test_variance_reduction_vs_delta_method():
     n_sims = 100
     se_delta, se_cuped = [], []

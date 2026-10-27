@@ -59,6 +59,32 @@ def test_pooled_centering_keeps_the_estimate_off_naive():
     assert adjusted["se"] < naive["se"]
 
 
+def test_known_lift_has_positive_point():
+    """B87: pin the sign and the definition of `point`.
+
+    The DGP adds `effect` to arm B only, so mean(b) - mean(a) must be positive.
+    Nothing else in the suite reads the sign: p_value, se and the CI width are
+    all invariant to `point -> -point`, so a reversed effect would pass.
+    """
+    xa, ya, xb, yb = cuped.simulate_cuped(n=2000, effect=0.1, rho=0.6, seed=1)
+    assert yb.mean() > ya.mean(), "fixture degenerate: B is not above A"
+    naive = cuped.welch_mean_test(ya, yb)
+    assert naive["point"] > 0
+    # pins the ordering: point is mean(b) - mean(a), not the reverse
+    assert naive["point"] == pytest.approx(yb.mean() - ya.mean(), abs=1e-12)
+    # CUPED must preserve the sign of the effect it removes variance from
+    theta = cuped.cuped_theta(np.concatenate([ya, yb]), np.concatenate([xa, xb]))
+    x_mean = cuped.pooled_covariate_mean(xa, xb)
+    adjusted = cuped.welch_mean_test(
+        cuped.cuped_adjust(ya, xa, theta, x_mean),
+        cuped.cuped_adjust(yb, xb, theta, x_mean),
+    )
+    assert adjusted["point"] > 0
+    assert adjusted["point"] == pytest.approx(
+        naive["point"] - theta * (xb.mean() - xa.mean()), abs=1e-12
+    )
+
+
 def test_constant_covariate_gives_no_adjustment():
     """A covariate with zero variance carries no information: theta = 0, Y unadjusted.
 

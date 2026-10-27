@@ -126,7 +126,12 @@ def _bca_interval(boot, a, b, statistic, point, alpha):
     return np.quantile(boot, [a1, a2])
 
 
-def t_test(a, b) -> dict:
+def t_test(a, b, alpha: float = 0.05) -> dict:
+    """Welch t-test of mean(b) - mean(a) with a normal-approximation CI.
+
+    Carries `reject`, so it satisfies the `test_fn(a, b, alpha) -> dict with
+    'reject'` contract that test_simulator.simulate plugs into.
+    """
     res = stats.ttest_ind(b, a, equal_var=False)
     diff = np.mean(b) - np.mean(a)
     se = np.sqrt(np.var(a, ddof=1) / len(a) + np.var(b, ddof=1) / len(b))
@@ -136,6 +141,7 @@ def t_test(a, b) -> dict:
         "ci_low": diff - stats.norm.ppf(0.975) * se,
         "ci_high": diff + stats.norm.ppf(0.975) * se,
         "p_value": float(res.pvalue),
+        "reject": bool(float(res.pvalue) < alpha),
     }
 
 

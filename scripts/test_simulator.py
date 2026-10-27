@@ -7,8 +7,16 @@ real effect. Rather than trust asymptotic promises, simulate the whole pipeline
 end-to-end.
 
 Plug in:
-  dgp_fn(effect) -> (group_a, group_b)   # data-generating process
-  test_fn(a, b)  -> dict with key 'reject' (bool)   # the test under audit
+  dgp_fn(effect) -> (group_a, group_b)          # data-generating process
+  test_fn(a, b, alpha) -> dict with key 'reject' (bool)   # the test under audit
+
+Both parts of the test contract are mandatory: the result must carry a 'reject'
+key (a test fn that names it differently is a contract violation, not a
+non-rejection — returning 0.0 for it would certify a bench that never ran), and
+the fn must accept `alpha` so the level it was calibrated at is the level it
+tested. Every test fn in this repo (test_welch, test_mannwhitney,
+test_bootstrap_mean, cuped.welch_mean_test, bootstrap_ci.t_test) satisfies both.
+A fn that cannot take `alpha` must be wrapped: `lambda a, b, alpha: fn(a, b)`.
 
 Returns empirical Type I error (effect=0) and power (effect>0), plus a
 calibration curve over a range of true effects.
@@ -29,9 +37,18 @@ def simulate(dgp_fn, test_fn, effect=0.0, n_trials=1000, alpha=0.05, seed=0):
         # give the dgp a deterministic sub-seed so trials are independent
         a, b = dgp_fn(effect, seed=int(rng.integers(1 << 31)))
         # alpha must reach the test, or `alpha` below reports a level the test
-        # never used; accept either key so any module's test fn can be plugged in
+        # never used
         res = test_fn(a, b, alpha=alpha)
-        if res.get("reject", res.get("significant")):
+        # `reject` is the contract. Reading a missing key as "did not reject"
+        # silently reports a calibrated 5% bench for a test that never ran, so
+        # fail loudly instead of guessing at a synonym.
+        if not isinstance(res, dict) or "reject" not in res:
+            got = sorted(res) if isinstance(res, dict) else type(res).__name__
+            raise TypeError(
+                f"test_fn {getattr(test_fn, '__name__', test_fn)!r} must return a dict with a "
+                f"'reject' key; got {got}"
+            )
+        if res["reject"]:
             rejects += 1
     rate = rejects / n_trials
     return {

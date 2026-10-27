@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
+import bootstrap_ci
+import cuped
 import numpy as np
+import pytest
 import test_simulator as ts
 
 
@@ -30,3 +33,60 @@ def test_mannwhitney_type1_on_lognormal():
 
     r0 = ts.simulate(dgp_lognormal, ts.test_mannwhitney, effect=0.0, n_trials=200, seed=1)
     assert 0.01 <= r0["rejection_rate"] <= 0.09
+
+
+# --- B86: the plugin contract is enforced, not assumed -----------------------
+def _renamed_key(a, b, alpha=0.05):
+    """A test fn that reports its verdict under another name."""
+    return {"significant": True, "p_value": 0.001}
+
+
+def _no_verdict(a, b, alpha=0.05):
+    return {"p_value": 0.5}
+
+
+def _not_a_dict(a, b, alpha=0.05):
+    return True
+
+
+@pytest.mark.parametrize("test_fn", [_renamed_key, _no_verdict, _not_a_dict])
+def test_missing_reject_key_raises(test_fn):
+    """A result without 'reject' used to be read as "did not reject", so the
+    bench reported a perfectly calibrated 5% for a test that never ran."""
+    with pytest.raises(TypeError, match="'reject' key"):
+        ts.simulate(ts.dgp_normal, test_fn, effect=0.0, n_trials=3, seed=1)
+
+
+def test_alpha_is_forwarded_to_the_test_fn():
+    seen = []
+
+    def spy(a, b, alpha):
+        seen.append(alpha)
+        return {"reject": False}
+
+    ts.simulate(ts.dgp_normal, spy, effect=0.0, n_trials=5, alpha=0.123, seed=1)
+    assert seen == [0.123] * 5
+
+
+@pytest.mark.parametrize(
+    "test_fn",
+    [
+        ts.test_welch,
+        ts.test_mannwhitney,
+        ts.test_bootstrap_mean,
+        cuped.welch_mean_test,
+        bootstrap_ci.t_test,
+    ],
+)
+def test_module_test_fns_can_be_plugged_in(test_fn):
+    """The docstring's "plug in any module's test fn" is the claim under audit:
+    every fn here must accept alpha and return 'reject'."""
+    row = ts.simulate(ts.dgp_normal, test_fn, effect=0.0, n_trials=20, alpha=0.05, seed=3)
+    assert 0.0 <= row["rejection_rate"] <= 1.0
+
+
+def test_welch_mean_test_reject_tracks_alpha():
+    """p = 0.002 on this fixture: reject at 0.05, keep at 0.001."""
+    xa, ya, xb, yb = cuped.simulate_cuped(n=2000, effect=0.1, rho=0.6, seed=1)
+    assert cuped.welch_mean_test(ya, yb, alpha=0.05)["reject"] is True
+    assert cuped.welch_mean_test(ya, yb, alpha=0.001)["reject"] is False
