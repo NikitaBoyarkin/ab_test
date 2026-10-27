@@ -185,7 +185,7 @@ def fixture_eda(df: pd.DataFrame) -> dict:
     yy = df["conv"].to_numpy(float)
     xx = df["pre_conv"].to_numpy(float)
     theta = cuped.cuped_theta(yy, xx)
-    y_adj = cuped.cuped_adjust(yy, xx, theta)
+    y_adj = cuped.cuped_adjust(yy, xx, theta, cuped.pooled_covariate_mean(xx))
     m = df["treat"].to_numpy() == 0
     a, b = yy[m], yy[~m]
     aa, bb = y_adj[m], y_adj[~m]

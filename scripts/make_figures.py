@@ -113,8 +113,10 @@ def figure_cuped() -> Path:
     x_all = np.concatenate([x_a, x_b])
     y_all = np.concatenate([y_a, y_b])
     pre = cuped.welch_mean_test(y_a, y_b)
+    x_mean = cuped.pooled_covariate_mean(x_a, x_b)
     post = cuped.welch_mean_test(
-        cuped.cuped_adjust(y_a, x_a, theta), cuped.cuped_adjust(y_b, x_b, theta)
+        cuped.cuped_adjust(y_a, x_a, theta, x_mean),
+        cuped.cuped_adjust(y_b, x_b, theta, x_mean),
     )
 
     fig, ax = new_axes(1, 2, figsize=(11, 4.5))
@@ -147,8 +149,9 @@ def figure_cupac() -> Path:
     se_naive = np.sqrt(np.var(y_a, ddof=1) / len(y_a) + np.var(y_b, ddof=1) / len(y_b))
 
     theta = cuped.cuped_theta(np.concatenate([y_a, y_b]), np.concatenate([x_a[:, 2], x_b[:, 2]]))
-    a_cuped = cuped.cuped_adjust(y_a, x_a[:, 2], theta)
-    b_cuped = cuped.cuped_adjust(y_b, x_b[:, 2], theta)
+    x_mean = cuped.pooled_covariate_mean(x_a[:, 2], x_b[:, 2])
+    a_cuped = cuped.cuped_adjust(y_a, x_a[:, 2], theta, x_mean)
+    b_cuped = cuped.cuped_adjust(y_b, x_b[:, 2], theta, x_mean)
     se_cuped = np.sqrt(
         np.var(a_cuped, ddof=1) / len(a_cuped) + np.var(b_cuped, ddof=1) / len(b_cuped)
     )

@@ -27,9 +27,10 @@ X = df[["pre_conv", "pre_sessions"]].to_numpy(dtype=float)
 
 # Baseline to beat: CUPED on the one covariate used in example 05.
 theta = cuped.cuped_theta(y, x1)
+x_mean = cuped.pooled_covariate_mean(x1)
 single = cuped.welch_mean_test(
-    cuped.cuped_adjust(y[arm == 0], x1[arm == 0], theta),
-    cuped.cuped_adjust(y[arm == 1], x1[arm == 1], theta),
+    cuped.cuped_adjust(y[arm == 0], x1[arm == 0], theta, x_mean),
+    cuped.cuped_adjust(y[arm == 1], x1[arm == 1], theta, x_mean),
 )
 # CUPAC: OLS outcome ~ every pre-period feature, fit on control, applied to both.
 model = cupac_test(y[arm == 0], X[arm == 0], y[arm == 1], X[arm == 1])

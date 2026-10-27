@@ -99,8 +99,9 @@ def cmd_cuped(args):
     _check_same_length(**{"--y-a": y_a, "--x-a": x_a})
     _check_same_length(**{"--y-b": y_b, "--x-b": x_b})
     theta = cuped.cuped_theta(np.concatenate([y_a, y_b]), np.concatenate([x_a, x_b]))
-    a = cuped.cuped_adjust(y_a, x_a, theta)
-    b = cuped.cuped_adjust(y_b, x_b, theta)
+    x_mean = cuped.pooled_covariate_mean(x_a, x_b)
+    a = cuped.cuped_adjust(y_a, x_a, theta, x_mean)
+    b = cuped.cuped_adjust(y_b, x_b, theta, x_mean)
     naive = cuped.welch_mean_test(y_a, y_b)
     adj = cuped.welch_mean_test(a, b)
     _emit(

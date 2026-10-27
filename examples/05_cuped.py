@@ -26,10 +26,11 @@ x = df["pre_sessions"].to_numpy(dtype=float)
 # theta comes from the pooled sample: x is pre-period, so pooling cannot leak
 # the treatment effect into the adjustment.
 theta = cuped_theta(y, x)
+x_mean = float(x.mean())  # pooled across both arms — the CUPED centering constant
 naive = welch_mean_test(y[arm == 0], y[arm == 1])
 cuped = welch_mean_test(
-    cuped_adjust(y[arm == 0], x[arm == 0], theta),
-    cuped_adjust(y[arm == 1], x[arm == 1], theta),
+    cuped_adjust(y[arm == 0], x[arm == 0], theta, x_mean),
+    cuped_adjust(y[arm == 1], x[arm == 1], theta, x_mean),
 )
 corr = float(np.corrcoef(x, y)[0, 1])
 var_cut = 1 - cuped["se"] ** 2 / naive["se"] ** 2

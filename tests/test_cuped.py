@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import cuped
 import numpy as np
+import pytest
 
 
 def _run_trial(effect, seed, use_cuped):
@@ -8,22 +9,54 @@ def _run_trial(effect, seed, use_cuped):
     if not use_cuped:
         return cuped.welch_mean_test(ya, yb)
     theta = cuped.cuped_theta(np.concatenate([ya, yb]), np.concatenate([xa, xb]))
-    a = cuped.cuped_adjust(ya, xa, theta)
-    b = cuped.cuped_adjust(yb, xb, theta)
+    x_mean = cuped.pooled_covariate_mean(xa, xb)
+    a = cuped.cuped_adjust(ya, xa, theta, x_mean)
+    b = cuped.cuped_adjust(yb, xb, theta, x_mean)
     return cuped.welch_mean_test(a, b)
 
 
 def test_variance_reduction_matches_theory():
     xa, ya, xb, yb = cuped.simulate_cuped(n=3000, effect=0.05, rho=0.6, seed=1)
     theta = cuped.cuped_theta(np.concatenate([ya, yb]), np.concatenate([xa, xb]))
+    x_mean = cuped.pooled_covariate_mean(xa, xb)
     pre = cuped.welch_mean_test(ya, yb)
     post = cuped.welch_mean_test(
-        cuped.cuped_adjust(ya, xa, theta), cuped.cuped_adjust(yb, xb, theta)
+        cuped.cuped_adjust(ya, xa, theta, x_mean),
+        cuped.cuped_adjust(yb, xb, theta, x_mean),
     )
     reduction = 1 - (post["var_a"] + post["var_b"]) / (pre["var_a"] + pre["var_b"])
     # DGP links X and Y through a shared latent with corr(X,Y) = rho^2, so the
     # theory reduction is corr(X,Y)^2 = rho^4 = 0.1296.
     assert 0.08 <= reduction <= 0.20, f"reduction={reduction:.2f}, theory ~ rho^4=0.13"
+
+
+def test_pooled_centering_keeps_the_estimate_off_naive():
+    """Regression (B85): per-arm centering collapses CUPED back to the naive diff.
+
+    With Y_adj = Y - theta * (X - mean(X_arm)), the adjusted mean inside each arm
+    is exactly the raw mean (mean(X - mean(X_arm)) == 0), so the point estimate is
+    bit-for-bit the naive one while welch_mean_test still reports the reduced
+    residual SE. Point estimate and SE then come from different estimators: the
+    CI is too narrow and Type I error inflates (~6.6% at nominal 5%, measured
+    over 4000 sims). Pooled centering yields the textbook estimator
+    diff_naive - theta * (mean(X_b) - mean(X_a)).
+    """
+    xa, ya, xb, yb = cuped.simulate_cuped(n=2000, effect=0.05, rho=0.6, seed=1)
+    theta = cuped.cuped_theta(np.concatenate([ya, yb]), np.concatenate([xa, xb]))
+    x_mean = cuped.pooled_covariate_mean(xa, xb)
+    naive = cuped.welch_mean_test(ya, yb)
+    adjusted = cuped.welch_mean_test(
+        cuped.cuped_adjust(ya, xa, theta, x_mean),
+        cuped.cuped_adjust(yb, xb, theta, x_mean),
+    )
+    expected = naive["point"] - theta * (xb.mean() - xa.mean())
+    assert adjusted["point"] == pytest.approx(expected, abs=1e-12)
+    # the defect: centred per arm, the adjustment vanishes from the point estimate
+    assert abs(adjusted["point"] - naive["point"]) > 1e-4
+    per_arm = cuped.welch_mean_test(ya - theta * (xa - xa.mean()), yb - theta * (xb - xb.mean()))
+    assert per_arm["point"] == pytest.approx(naive["point"], abs=1e-12)
+    # the reduced residual SE is only valid paired with the pooled-centred estimate
+    assert adjusted["se"] < naive["se"]
 
 
 def test_constant_covariate_gives_no_adjustment():
@@ -36,7 +69,7 @@ def test_constant_covariate_gives_no_adjustment():
     x = np.ones(200)
     theta = cuped.cuped_theta(y, x)
     assert theta == 0.0
-    np.testing.assert_allclose(cuped.cuped_adjust(y, x, theta), y)
+    np.testing.assert_allclose(cuped.cuped_adjust(y, x, theta, cuped.pooled_covariate_mean(x)), y)
 
 
 def test_type1_stays_calibrated():

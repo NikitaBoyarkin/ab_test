@@ -124,8 +124,9 @@ def main():
     import cuped
 
     theta = cuped.cuped_theta(np.concatenate([ya, yb]), np.concatenate([Xa[:, 2], Xb[:, 2]]))
-    a_cuped = cuped.cuped_adjust(ya, Xa[:, 2], theta)
-    b_cuped = cuped.cuped_adjust(yb, Xb[:, 2], theta)
+    x_mean = cuped.pooled_covariate_mean(Xa[:, 2], Xb[:, 2])
+    a_cuped = cuped.cuped_adjust(ya, Xa[:, 2], theta, x_mean)
+    b_cuped = cuped.cuped_adjust(yb, Xb[:, 2], theta, x_mean)
     se_cuped = np.sqrt(
         np.var(a_cuped, ddof=1) / len(a_cuped) + np.var(b_cuped, ddof=1) / len(b_cuped)
     )

@@ -7,7 +7,13 @@ on X and test on the residual. The residual variance is (1 - corr(X,Y)^2)
 times the unadjusted variance, so the variance drop equals corr(X,Y)^2.
 
     theta = Cov(Y, X) / Var(X)      # from pooled pre+post, unaffected by treatment
-    Y_adj = Y - theta * (X - mean(X))
+    Y_adj = Y - theta * (X - mean_pooled(X))
+
+The centering constant MUST be the mean of X over BOTH arms. Centering each arm
+by its own mean leaves mean(Y_adj) == mean(Y) inside that arm, so the adjusted
+difference of means collapses to the naive one while welch_mean_test still
+reports the smaller residual (CUPED) SE: the CI is too narrow and Type I error
+inflates (~6.6% at nominal 5%, measured over 4000 sims).
 
 Reference: Deng, Xu, Kohavi, Walker (2013), "Improving the Sensitivity of
 Online Controlled Experiments by Utilizing Pre-Experiment Data".
@@ -35,10 +41,21 @@ def cuped_theta(y, x) -> float:
     return float(cov / var_x)
 
 
-def cuped_adjust(y, x, theta) -> np.ndarray:
-    """Y_adj = Y - theta * (X - mean(X)). mean(X) from the pooled covariate."""
+def pooled_covariate_mean(*arms) -> float:
+    """Mean of the pre-period covariate over every arm — the CUPED centering constant."""
+    return float(np.concatenate([np.asarray(a, dtype=float) for a in arms]).mean())
+
+
+def cuped_adjust(y, x, theta, x_mean) -> np.ndarray:
+    """Y_adj = Y - theta * (X - x_mean), with x_mean the POOLED covariate mean.
+
+    `x_mean` is required and must come from every arm concatenated, not from the
+    single arm in `x`: centering per arm cancels the adjustment in the difference
+    of means (the point estimate becomes the naive one) while the SE is still the
+    residual SE, which inflates Type I error.
+    """
     x = np.asarray(x, dtype=float)
-    return np.asarray(y, dtype=float) - theta * (x - x.mean())
+    return np.asarray(y, dtype=float) - theta * (x - x_mean)
 
 
 def simulate_cuped(n=2000, effect=0.0, rho=0.6, seed=0):
@@ -77,8 +94,9 @@ def main():
     pre = welch_mean_test(y_a, y_b)
     # theta from pooled pre-period covariate vs post outcome (unaffected by treatment)
     theta = cuped_theta(np.concatenate([y_a, y_b]), np.concatenate([x_a, x_b]))
-    y_a_adj = cuped_adjust(y_a, x_a, theta)
-    y_b_adj = cuped_adjust(y_b, x_b, theta)
+    x_mean = pooled_covariate_mean(x_a, x_b)
+    y_a_adj = cuped_adjust(y_a, x_a, theta, x_mean)
+    y_b_adj = cuped_adjust(y_b, x_b, theta, x_mean)
     post = welch_mean_test(y_a_adj, y_b_adj)
     pre_half = (pre["ci_high"] - pre["ci_low"]) / 2
     post_half = (post["ci_high"] - post["ci_low"]) / 2
@@ -103,8 +121,9 @@ def main():
         if not use_cuped:
             return welch_mean_test(y_a, y_b)["p_value"]
         theta = cuped_theta(np.concatenate([y_a, y_b]), np.concatenate([x_a, x_b]))
-        a = cuped_adjust(y_a, x_a, theta)
-        b = cuped_adjust(y_b, x_b, theta)
+        x_mean = pooled_covariate_mean(x_a, x_b)
+        a = cuped_adjust(y_a, x_a, theta, x_mean)
+        b = cuped_adjust(y_b, x_b, theta, x_mean)
         return welch_mean_test(a, b)["p_value"]
 
     n_sims = 400

@@ -177,7 +177,7 @@ def cuped_calibrate(df):
     y = df["conv"].to_numpy(dtype=float)
     x = df["pre_conv"].to_numpy(dtype=float)
     theta = cuped.cuped_theta(y, x)
-    y_adj = cuped.cuped_adjust(y, x, theta)
+    y_adj = cuped.cuped_adjust(y, x, theta, cuped.pooled_covariate_mean(x))
     mask = df["treat"].to_numpy() == 0
     a, b = y[mask], y[~mask]
     a_adj, b_adj = y_adj[mask], y_adj[~mask]

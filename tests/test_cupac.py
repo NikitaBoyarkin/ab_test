@@ -30,8 +30,9 @@ def test_variance_reduction_better_than_single_covariate():
         Xa, ya, Xb, yb = cupac.simulate_cupac(n=3000, effect=0.05, n_features=3, seed=s)
         se_naive.append(np.sqrt(np.var(ya, ddof=1) / len(ya) + np.var(yb, ddof=1) / len(yb)))
         theta = cuped.cuped_theta(np.concatenate([ya, yb]), np.concatenate([Xa[:, 2], Xb[:, 2]]))
-        a = cuped.cuped_adjust(ya, Xa[:, 2], theta)
-        b = cuped.cuped_adjust(yb, Xb[:, 2], theta)
+        x_mean = cuped.pooled_covariate_mean(Xa[:, 2], Xb[:, 2])
+        a = cuped.cuped_adjust(ya, Xa[:, 2], theta, x_mean)
+        b = cuped.cuped_adjust(yb, Xb[:, 2], theta, x_mean)
         se_cuped.append(np.sqrt(np.var(a, ddof=1) / len(a) + np.var(b, ddof=1) / len(b)))
         se_cupac.append(cupac.cupac_test(ya, Xa, yb, Xb)["se"])
     red_cuped = 1 - np.mean(se_cuped) ** 2 / np.mean(se_naive) ** 2
