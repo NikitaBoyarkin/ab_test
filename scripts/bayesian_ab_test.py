@@ -32,7 +32,6 @@ def beta_binomial(s, f, prior=(1.0, 1.0), n_samples=200_000, seed=0):
     ----------
     s, f : (s_a, s_b), (f_a, f_b)  — successes and failures per arm.
     prior : (a, b) Beta prior shape, shared by both arms.
-    rope : half-width of region of practical equivalence for theta_B - theta_A.
     """
     a0, b0 = prior
     rng = np.random.default_rng(seed)
@@ -42,7 +41,15 @@ def beta_binomial(s, f, prior=(1.0, 1.0), n_samples=200_000, seed=0):
     return post_a, post_b
 
 
-def decide(post_a, post_b, rope=0.0):
+def decide(post_a, post_b, rope=0.0, loss_threshold=1e-4):
+    """Verdict from two posterior samples.
+
+    loss_threshold is the expected loss small enough to act on. It is in the
+    metric's own units, so the 1e-4 default suits a conversion rate and nothing
+    else — pass the band the metric justifies (revenue, seconds, revenue in
+    cents) or the same evidence will read as "ship" at one scale and "keep
+    testing" at another.
+    """
     diff = post_b - post_a
     p_b_better = float(np.mean(diff > 0))
     p_a_better = float(np.mean(diff < 0))
@@ -61,17 +68,21 @@ def decide(post_a, post_b, rope=0.0):
         "expected_loss_choose_b": loss_b,
         "expected_loss_choose_a": loss_a,
         "ci95": (float(ci[0]), float(ci[1])),
-        "decision": _pick(p_b_better, p_a_better, p_equiv, loss_a, loss_b, rope),
+        "decision": _pick(p_b_better, p_a_better, p_equiv, loss_a, loss_b, rope, loss_threshold),
     }
 
 
-def _pick(p_b, p_a, p_eq, loss_a, loss_b, rope):
+def _pick(p_b, p_a, p_eq, loss_a, loss_b, rope, loss_threshold):
     if p_eq >= 0.95:
         return "equivalent (within ROPE)"
+    # The threshold is in the metric's own units, so it cannot be a universal
+    # constant: 1e-4 is a sensible indifference band for a conversion rate but
+    # means "ship" for the same effect expressed in cents. Callers measuring
+    # revenue must pass the band their metric actually justifies.
     if loss_b < loss_a:
-        return "ship B" if loss_b < 1e-4 else "lean B (keep testing)"
+        return "ship B" if loss_b < loss_threshold else "lean B (keep testing)"
     if loss_a < loss_b:
-        return "keep A" if loss_a < 1e-4 else "lean A (keep testing)"
+        return "keep A" if loss_a < loss_threshold else "lean A (keep testing)"
     return "inconclusive"
 
 

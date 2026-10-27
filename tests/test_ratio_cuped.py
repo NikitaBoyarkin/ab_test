@@ -51,6 +51,36 @@ def test_known_lift_is_positive():
     assert res["ci_low"] > 0  # a +10% lift is far from the null here
 
 
+def test_constant_pre_period_falls_back_to_no_adjustment():
+    """A pre-period with zero variance is 0/0 for theta.
+
+    Users with no pre-period activity (zero clicks on constant impressions) give
+    z_pre identical for every row, so var(z_pre) == 0 and the ratio was nan --
+    silently, because the modules swallow warnings on import. The guard must fall
+    back to the unadjusted delta method.
+    """
+    rng = np.random.default_rng(5)
+    n = 400
+    x_a = np.full(n, 10.0)
+    y_a = rng.binomial(10, 0.10, n).astype(float)
+    x_b = np.full(n, 10.0)
+    y_b = rng.binomial(10, 0.10, n).astype(float)
+    res = rc.ratio_cuped_test(
+        x_a,
+        y_a,
+        x_b,
+        y_b,
+        np.full(n, 10.0),
+        np.zeros(n),
+        np.full(n, 10.0),
+        np.zeros(n),
+    )
+    assert res["theta"] == 0.0
+    assert res["r_squared"] == 0.0
+    for key in ("diff", "se", "p_value", "ci_low", "ci_high"):
+        assert np.isfinite(res[key]), f"{key} = {res[key]}"
+
+
 def test_variance_reduction_vs_delta_method():
     n_sims = 100
     se_delta, se_cuped = [], []

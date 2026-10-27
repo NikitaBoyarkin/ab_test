@@ -319,7 +319,8 @@ A/B Testing Methodology Toolkit — эмпирический, калиброво
 ```
 scripts/            метод-модули (один топик каждый) + end-to-end pipeline
 tests/              калибровочный набор (Type I, power, coverage, known-answer)
-plots/  outputs/    генерируемые артефакты (gitignored)
+plots/  outputs/    генерируемые артефакты (.gitignore: всё, кроме
+                   !plots/pipeline_*.png и !outputs/report.md)
 .github/workflows/  CI: ruff + pytest
 ```
 
@@ -343,9 +344,9 @@ plots/  outputs/    генерируемые артефакты (gitignored)
 ### Phase 1: Консолидация as-is (Week 1-2)
 **Goal:** зафиксировать текущее состояние как контракт.
 **Tasks:**
-- [ ] Task 1.1: PRD + документация (REQ-001..013) — Small (3h)
-- [ ] Task 1.2: Аудит README и CI-пайплайна — Small (2h)
-- [ ] Task 1.3: Проверка полного прогона `uv run pytest` + `run_full_pipeline.py` — Small (2h)
+- [x] Task 1.1: PRD + документация (REQ-001..013) — Small (3h)
+- [x] Task 1.2: Аудит README и CI-пайплайна — Small (2h)
+- [x] Task 1.3: Проверка полного прогона `uv run pytest` + `run_full_pipeline.py` — Small (2h)
 **Validation Checkpoint:** все тесты зелёные, pipeline генерирует отчёт.
 
 ### Phase 2: Новые методы (Week 3-6)

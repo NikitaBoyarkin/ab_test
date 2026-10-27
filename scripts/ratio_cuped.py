@@ -61,7 +61,16 @@ def ratio_cuped_test(
 
     z_all = np.concatenate([z_a, z_b])
     z_pre_all = np.concatenate([z_pre_a, z_pre_b])
-    theta = np.cov(z_all, z_pre_all, ddof=1)[0, 1] / np.var(z_pre_all, ddof=1)
+    # A pre-period with no variance carries no information: theta is 0/0 and the
+    # R^2 is undefined. Fall back to no adjustment, as cuped.cuped_theta does,
+    # instead of propagating nan into the statistic and the interval.
+    var_pre = float(np.var(z_pre_all, ddof=1))
+    if var_pre > 0 and float(np.var(z_all, ddof=1)) > 0:
+        theta = float(np.cov(z_all, z_pre_all, ddof=1)[0, 1] / var_pre)
+        r_squared = float(np.corrcoef(z_all, z_pre_all)[0, 1] ** 2)
+    else:
+        theta = 0.0
+        r_squared = 0.0
     z_pre_mean = z_pre_all.mean()
 
     za_adj = z_a - theta * (z_pre_a - z_pre_mean)
@@ -86,7 +95,7 @@ def ratio_cuped_test(
         "ci_high": ci[1],
         "significant": p < alpha,
         "theta": theta,
-        "r_squared": float(np.corrcoef(z_all, z_pre_all)[0, 1] ** 2),
+        "r_squared": r_squared,
     }
 
 

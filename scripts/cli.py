@@ -140,9 +140,12 @@ def cmd_pipeline(args):
     }
     missing = required - set(df.columns)
     if missing:
-        raise SystemExit(
-            f"pipeline data must have columns {sorted(required)}; missing: {sorted(missing)}"
+        # README promises exit code 2 for invalid input; SystemExit(str) exits 1.
+        print(
+            f"pipeline data must have columns {sorted(required)}; missing: {sorted(missing)}",
+            file=sys.stderr,
         )
+        raise SystemExit(2)
     _emit(run_full_pipeline.run_pipeline(df), args.format)
 
 

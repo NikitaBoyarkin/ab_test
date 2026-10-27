@@ -11,10 +11,11 @@ rejects depends on whether treatment varies *within* a cluster:
      A clustering-ignorant SE is too small -> over-rejects. Use cluster-robust SE.
 
   2. Switchback (treatment switches on/off over time within a cluster):
-     positive within-cluster correlation CANCELS in the treated-vs-control
-     contrast (both arms share the correlated part). A clustering-ignorant SE
-     is too large -> conservative, wastes power. Use cluster-robust SE with
-     period fixed effects (smaller, correct SE, earlier detection).
+     under i.i.d. period assignment the two estimators are interchangeable —
+     measured across seeds the cluster-robust SE is neither systematically
+     larger nor smaller than the naive one. Cluster-robust SE matters here for
+     what it does under serial correlation, not for a power gain: pair it with
+     period fixed effects.
 
 Carryover (treatment in period p leaks into p+1) biases the point estimate; SE
 cannot fix it. Dropping the first period of each cluster does not help either --

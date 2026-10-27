@@ -80,9 +80,15 @@ def test_alpha_is_forwarded_to_the_test_fn():
 )
 def test_module_test_fns_can_be_plugged_in(test_fn):
     """The docstring's "plug in any module's test fn" is the claim under audit:
-    every fn here must accept alpha and return 'reject'."""
-    row = ts.simulate(ts.dgp_normal, test_fn, effect=0.0, n_trials=20, alpha=0.05, seed=3)
-    assert 0.0 <= row["rejection_rate"] <= 1.0
+    every fn here must accept alpha and return 'reject' -- and, once plugged in,
+    actually reject at a rate the null can explain. A rate of 0 or 1 means the
+    verdict was never read from the function at all."""
+    row = ts.simulate(ts.dgp_normal, test_fn, effect=0.0, n_trials=200, alpha=0.05, seed=3)
+    # the lower bound is strict on purpose: a function whose verdict is never read
+    # rejects zero times out of 200 under a null with a real 5% level
+    assert 0.0 < row["rejection_rate"] <= 0.13, (
+        f"{test_fn.__name__}: rejection rate {row['rejection_rate']:.3f} on a null DGP"
+    )
 
 
 def test_welch_mean_test_reject_tracks_alpha():

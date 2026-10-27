@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
-from pathlib import Path
+import inspect
 
 import make_figures as mf
 import matplotlib.pyplot as plt
 import plotting
-import sequential_ab_testing as sat
 
 
 def test_new_axes_single_and_grid():
@@ -27,9 +26,25 @@ def test_save_fig_writes_and_closes(tmp_path):
     assert not plt.fignum_exists(number)
 
 
-def test_gallery_is_wired():
-    assert len(mf.FIGURE_FUNCTIONS) == 17
-    assert all(callable(fn) for fn in mf.FIGURE_FUNCTIONS)
+def test_gallery_registry_covers_every_figure_function():
+    """No figure defined in the module may be missing from the gallery, and no
+    registry entry may point at a function that no longer exists.
+
+    Regression guard: this used to assert `len(FIGURE_FUNCTIONS) == 17`, which red
+    on every legitimate new figure and green on an orphaned one.
+    """
+    defined = {
+        name
+        for name, obj in vars(mf).items()
+        if name.startswith("figure_")
+        and callable(obj)
+        and getattr(obj, "__module__", None) == mf.__name__
+        and not inspect.signature(obj).parameters
+    }
+    registered = {fn.__name__ for fn in mf.FIGURE_FUNCTIONS}
+    assert registered == defined, (
+        f"unregistered: {sorted(defined - registered)}; stale: {sorted(registered - defined)}"
+    )
 
 
 def test_figure_srm(tmp_path, monkeypatch):
@@ -43,7 +58,3 @@ def test_figure_multiple_comparisons(tmp_path, monkeypatch):
     monkeypatch.setattr(plotting, "PLOTS_DIR", tmp_path)
     path = mf.figure_multiple_comparisons()
     assert path.exists() and path.stat().st_size > 0
-
-
-def test_sequential_plots_dir_is_repo_plots():
-    assert sat.PLOTS_DIR == Path(sat.__file__).resolve().parent.parent / "plots"

@@ -1,14 +1,17 @@
 # -*- coding: utf-8 -*-
 """Bootstrap confidence intervals for A/B tests on arbitrary metrics.
 
-The bootstrap makes no distributional assumption, so it works for skewed
-metrics (revenue, clicks, session length) and arbitrary statistics (median,
-quantile, conversion) where the normal-approximation t-test is misleading.
+The bootstrap makes no distributional assumption, so it works for statistics
+that have no normal theory at all — median, quantile, a ratio of quantiles —
+and it cross-checks the analytic interval on skewed metrics (revenue, clicks,
+session length).
 
 Two flavours:
   - percentile: take empirical quantiles of the bootstrap distribution.
-  - BCa: bias-corrected and accelerated — better coverage when the bootstrap
-    distribution is skewed (the default here for the difference of means).
+  - BCa: bias-corrected and accelerated — the default here. It pays off on
+    skewed statistics (medians, quantiles); for the difference of means it
+    lands within noise of percentile and of the Welch t-test, which is already
+    calibrated at these sample sizes. Run `main()` for the measured coverage.
 
 BCa is undefined when the statistic is tied: the jackknife acceleration becomes
 0/0, so the correction has nothing to estimate from. That is not exotic — the

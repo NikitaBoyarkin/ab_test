@@ -40,6 +40,10 @@ def test_sample_size_table_monotonic():
 
 
 def test_fixed_sample_benchmark_matches_module():
+    """Known-answer pin for the fixed-horizon benchmark the sequential rule is
+    compared against: two-sided, 80% power, p1 = 0.01 vs p2 = 0.002."""
     n = sat.fixed_sample_size(0.01, 0.002)
-    assert n > 0
     assert isinstance(n, int)
+    assert n == 33_627
+    # a larger effect needs fewer users -- catches a sign or argument-order flip
+    assert sat.fixed_sample_size(0.01, 0.003) < n

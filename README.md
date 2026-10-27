@@ -52,7 +52,7 @@ synthetic experiment (42,000 users, 21 days, A = 20,979 / B = 21,021) and writes
 | CUPED variance reduction | SE 0.00360 → 0.00327 | **17.7%** of the variance removed using pre-period data |
 | Decision metric (delta-method CTR) | 0.0499 → 0.0550, +0.00512, p < 0.0001 | +0.51pp lift, significant |
 | Segment heterogeneity (BH-corrected) | mobile +0.0015, desktop −0.0001, tablet −0.0128 | no segment differs once correction is applied (all p_adj > 0.32) |
-| Novelty / primacy | treat×day +0.00065, p = 0.2714 | no time trend — the effect is stable |
+| Novelty / primacy | treat×day +0.00065, p = 0.2714 | no decay detected at this n — the DGP *does* inject one (`novelty=0.6`), so read this row as a power limit, not as proof the effect is stable |
 
 **Source of these numbers.** They come from the full pipeline on the default
 **42,000-user DGP** (`scripts/run_full_pipeline.py`), **not** from the committed

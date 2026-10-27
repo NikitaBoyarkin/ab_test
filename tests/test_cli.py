@@ -6,6 +6,7 @@ import json
 import cli
 import cuped
 import pandas as pd
+import pytest
 import run_full_pipeline
 
 
@@ -40,7 +41,11 @@ def test_cuped_runs(capsys, tmp_path):
         ],
     )
     assert out["significant"] is True
-    assert out["variance_reduction"] > 0
+    # pinned on the seed=1 fixture: a corrupted adjustment still reports
+    # something positive, so the magnitude is what has to be checked
+    assert out["variance_reduction"] == pytest.approx(0.1355, abs=0.002)
+    assert out["diff"] == pytest.approx(0.1032, abs=0.002)
+    assert out["p_value"] < 0.001
 
 
 def test_pipeline_runs(capsys, tmp_path):
@@ -57,3 +62,16 @@ def test_pipeline_runs(capsys, tmp_path):
     assert ratio["significant"] == (not (ratio["ci_low"] <= 0 <= ratio["ci_high"]))
     # balanced synthetic assignment -> no SRM on this fixture
     assert out["srm"]["srm_detected"] is False
+
+
+def test_pipeline_missing_columns_exits_2(tmp_path, capsys):
+    """README promises exit code 2 for invalid input.
+
+    Regression guard: `raise SystemExit(str)` exits 1 for every error path, so
+    a caller scripting the CLI around "2 means bad input" never saw it.
+    """
+    pd.DataFrame({"day": [1, 2], "treat": [0, 0]}).to_csv(tmp_path / "bad.csv", index=False)
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["pipeline", "--data", str(tmp_path / "bad.csv")])
+    assert exc.value.code == 2
+    assert "missing" in capsys.readouterr().err
