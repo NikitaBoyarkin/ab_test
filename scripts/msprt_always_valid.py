@@ -12,10 +12,15 @@ so you may stop the instant p_t crosses alpha. Under H0 (mean = 0, unit-variance
 observations) with a Gaussian mixing prior on the effect ~ N(0, rho^2):
 
     Lambda_t = (1 + rho^2 t)^(-1/2) * exp( rho^2 S_t^2 / (2 (1 + rho^2 t)) )
-    reject when Lambda_t >= 1/alpha    <=>    p_t = 1 / Lambda_t <= alpha
+    p_t      = min_{k <= t} min(1, 1 / Lambda_k)     (running min, always-valid)
+    reject when max_{k <= t} Lambda_k >= 1/alpha    <=>    p_t <= alpha
 
 where S_t = sum of the first t observations. Lambda is a nonnegative
-supermartingale under H0, so Ville's inequality gives the always-valid guarantee.
+supermartingale under H0, so Ville's inequality gives the always-valid
+guarantee. The p-value is the running minimum of 1/Lambda: a supermartingale's
+supremum up to t is what the guarantee bounds, so a path that crossed alpha at
+an earlier look must *stay* rejected — a pointwise 1/Lambda_t would drift back
+above alpha even though the evidence against H0 has not weakened.
 
 `rho` (prior SD of the effect, in observation-SD units) trades sensitivity:
 small rho favours detecting small effects, large rho favours large effects.
@@ -41,12 +46,22 @@ def msprt_lambda(S, t, rho):
 
 
 def always_valid_pvalue(S, t, rho):
-    """Always-valid p-value = min(1, 1 / Lambda_t) (valid at any stopping time).
+    """Always-valid p-value: p_t = min_{k <= t} min(1, 1 / Lambda_k).
 
-    The clamp belongs to the definition: Lambda_t < 1 is evidence for the null,
-    so the raw reciprocal would exceed 1 and stop being a p-value.
+    Ville's inequality bounds the *supremum* of the supermartingale up to the
+    stopping time, so the p-value is the running minimum over looks, not the
+    pointwise 1/Lambda_t: a look that already crossed alpha must stay rejected
+    even if the statistic later drifts back. `S` and `t` must be given in
+    increasing-t order (that is the order the cumsum / interim sequence has).
+
+    The inner clamp belongs to the definition: Lambda_t < 1 is evidence for the
+    null, so the raw reciprocal would exceed 1 and stop being a p-value.
+    Scalar input is returned unchanged (a min over one look).
     """
-    return np.minimum(1.0, 1.0 / msprt_lambda(S, t, rho))
+    p = np.minimum(1.0, 1.0 / msprt_lambda(S, t, rho))
+    if np.ndim(p) == 0:
+        return p
+    return np.minimum.accumulate(p)
 
 
 def naive_z_pvalue(S, t):
@@ -90,7 +105,8 @@ def main():
     print(f"[Null calibration, {n_streams} streams, peek over t=1..{n}, alpha={alpha}]")
     print(f"  {'method':<16} {'P(ever p<=alpha)':>18}")
     print(
-        f"  {'always-valid':<16} {av_false / n_streams * 100:>17.1f}%   (expect ~{alpha * 100:.0f}%)"
+        f"  {'always-valid':<16} {av_false / n_streams * 100:>17.1f}%   "
+        f"(<= {alpha * 100:.0f}%; 1-4% observed, the mSPRT is conservative at finite t)"
     )
     print(f"  {'naive z-test':<16} {naive_false / n_streams * 100:>17.1f}%   (inflated by peeking)")
     print()

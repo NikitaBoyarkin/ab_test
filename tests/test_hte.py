@@ -2,6 +2,7 @@
 import heterogeneous_treatment_effects as hte
 import numpy as np
 import pandas as pd
+import pytest
 
 
 def test_per_segment_ate_sign_detected():
@@ -75,3 +76,60 @@ def test_per_segment_se_comes_from_one_model():
     _, ate = hte.fit_het(df, ref_segment="desktop")
     ses = ate["se"].to_numpy()
     assert np.ptp(ses) < 1e-12, f"SEs differ across segments: {list(ate['se'])}"
+
+
+def test_segment_family_fwer_controlled():
+    """Under a global null the chance of ANY per-segment flag must stay near 5%.
+
+    Three per-segment tests read at raw p < 0.05 put the family-wise error rate
+    at 1 - (1 - 0.05)^3 = 14%, three times nominal; `sig_adj` exists to hold it
+    down. The 8% ceiling sits above BH's ~5% (and above its simulation noise at
+    600 draws) but far below the ~14% an uncorrected read produces -- disabling
+    the correction turns this test red.
+    """
+    n_sims = 600
+    any_reject = 0
+    for s in range(n_sims):
+        _, ate = hte.fit_het(_null_het(seed=s), ref_segment="desktop")
+        assert (ate["p_adj"] >= ate["p_value"] - 1e-12).all(), "adjustment must not shrink p"
+        any_reject += bool(ate["sig_adj"].any())
+    fwer = any_reject / n_sims
+    assert fwer <= 0.08, f"per-segment FWER = {fwer:.3f}, expect ~0.05 (uncorrected ~0.14)"
+
+
+def test_bonferroni_option_is_available_and_stricter():
+    """`correction="bonferroni"` must be reachable and at least as strict as BH."""
+    df = hte.simulate_het(seed=1)
+    _, bh = hte.fit_het(df, ref_segment="desktop", correction="bh")
+    _, bonf = hte.fit_het(df, ref_segment="desktop", correction="bonferroni")
+    assert (bonf["p_adj"] >= bh["p_adj"] - 1e-12).all()
+    assert (bh["p_adj"] >= bh["p_value"] - 1e-12).all()
+
+
+def test_interaction_family_fwer_controlled():
+    """The interaction tests are a second family and need their own correction.
+
+    Two interaction terms read at raw p < 0.05 put the family-wise error rate at
+    1 - 0.95^2 = 9.8%. `interaction_effects` must bring it near 5%; without the
+    correction this test goes red (measured 9.2% uncorrected vs 4.9% with BH).
+    """
+    n_sims = 600
+    any_reject = 0
+    for s in range(n_sims):
+        model, _ = hte.fit_het(_null_het(seed=s), ref_segment="desktop")
+        inter = hte.interaction_effects(model)
+        assert (inter["p_adj"] >= inter["p_value"] - 1e-12).all(), "adjustment must not shrink p"
+        assert len(inter) == 2, list(inter.index)
+        any_reject += bool(inter["sig_adj"].any())
+    fwer = any_reject / n_sims
+    assert fwer <= 0.08, f"interaction FWER = {fwer:.3f}, expect ~0.05 (uncorrected ~0.10)"
+
+
+def test_correction_methods_and_unknown_method():
+    """`"none"` must be the identity, and an unknown method must raise."""
+    p = np.array([0.01, 0.04, 0.2])
+    adj, rej = hte.correct_pvalues(p, method="none", alpha=0.05)
+    assert np.allclose(adj, p), adj
+    assert rej.tolist() == [True, True, False]
+    with pytest.raises(ValueError):
+        hte.correct_pvalues(p, method="holm", alpha=0.05)

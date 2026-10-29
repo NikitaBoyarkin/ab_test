@@ -134,6 +134,8 @@ A/B Testing Methodology Toolkit — эмпирический, калиброво
 - [ ] Type I error сохраняется ≈ α после применения.
 - [ ] Работает для средних и ratio-метрик.
 
+**Реализация (ревизия 2026-10-28):** средние — `scripts/cuped.py` (`cuped_theta:30`, `welch_mean_test:73`); ratio-метрики — **отдельный модуль `scripts/ratio_cuped.py`** (`ratio_cuped_test:36`), а не `cuped.py`. Покрытие: `tests/test_cuped.py`, `tests/test_ratio_cuped.py:7-84` (Type I, coverage, known lift, guard нулевой дисперсии, variance reduction vs delta-method).
+
 **Dependencies:** None
 
 #### REQ-005: Sequential testing (alpha-spending + mSPRT)
@@ -153,6 +155,8 @@ A/B Testing Methodology Toolkit — эмпирический, калиброво
 - [ ] P(B>A), expected loss, ROPE вычисляются корректно.
 - [ ] Сходится с частотным результатом на больших выборках (демо).
 - [ ] Известные-ответы фикстуры проходят.
+
+**Покрытие тестом (ревизия 2026-10-28):** `tests/test_bayesian_ab_test.py` (69 строк) ассертит ключи `p_b_better` (`:12,19,39`), `lift_mean` (`:42`), `ci95` (`:43`), `expected_loss_choose_b` (`:54,68`), `decision` (`:13,20,61,64,69`) и дефолт `loss_threshold` (`:56`). **Не покрыты тестом:** `p_equiv_within_rope` (ROPE), `expected_loss_choose_a`, `lift_median`, `p_a_better` — они печатаются в `bayesian_ab_test.main()`, но нигде не ассертятся. Строка AC про ROPE и expected loss выполнена частично.
 
 **Dependencies:** None
 

@@ -51,3 +51,37 @@ def test_always_valid_pvalue_is_a_pvalue():
     assert float(m.always_valid_pvalue(0.0, 25, 0.5)) == 1.0
     # more evidence (larger |S|) at the same t must give a smaller p
     assert m.always_valid_pvalue(10.0, 25, 0.5) < m.always_valid_pvalue(1.0, 25, 0.5)
+
+
+def test_always_valid_pvalue_is_running_min():
+    """The array form must return min_{k<=t} 1/Lambda_k, not the pointwise value.
+
+    Ville's inequality bounds the supremum of the supermartingale up to the
+    stopping time, so the p-value is a running minimum. The path below is not
+    monotone (see test_running_min_keeps_an_earlier_crossing) — a pointwise
+    implementation would both miss the accumulate and report a rising p.
+    """
+    t = np.arange(1, 501)
+    S = np.minimum(t, 2) * 15.0
+    p = m.always_valid_pvalue(S, t, rho=0.5)
+    pointwise = np.minimum(1.0, 1.0 / m.msprt_lambda(S, t, rho=0.5))
+    assert (np.diff(pointwise) > 0.0).any(), "pick a path where the pointwise p rises"
+    assert np.allclose(p, np.minimum.accumulate(pointwise))
+    assert np.all(np.diff(p) <= 0.0), "running min must be non-increasing"
+    assert p[-1] == p.min() < pointwise[-1]
+
+
+def test_running_min_keeps_an_earlier_crossing():
+    """A path that hit alpha early and then drifted back still reads as rejected.
+
+    S jumps once and then stays flat: t keeps growing, so the pointwise
+    1/Lambda_t rises back above alpha although no evidence has been retracted.
+    That is exactly the case the running min exists for.
+    """
+    t = np.arange(1, 501)
+    S = np.minimum(t, 2) * 15.0
+    pointwise = np.minimum(1.0, 1.0 / m.msprt_lambda(S, t, rho=0.5))
+    p = m.always_valid_pvalue(S, t, rho=0.5)
+    assert pointwise.min() <= 0.05, "the synthetic path must cross alpha at some look"
+    assert pointwise[-1] > 0.05, "the pointwise p must drift back above alpha"
+    assert p[-1] <= 0.05, f"the crossing was lost: running-min p at the last look = {p[-1]}"
