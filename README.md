@@ -1,3 +1,18 @@
+<!-- ascii-art: pyfiglet + ascii-bin (CC0) -->
+```text
+       _       _            _
+  __ _| |__   | |_ ___  ___| |_
+ / _` | '_ \  | __/ _ \/ __| __|
+| (_| | |_) | | ||  __/\__ \ |_
+ \__,_|_.__/___\__\___||___/\__|
+          |_____|
+
+╭──────────────────────────────────────────────────────────────────────────╮
+│ A/B test methods are only as good as their Type I error under the nul... │
+╰──────────────────────────────────────────────────────────────────────────╯
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
 # A/B Testing Methodology Toolkit
 
 > CUPED removes **17.7%** of the variance on the demo experiment; the delta-method CTR lift (**+0.51pp**) is significant at p < 0.0001 — every calibration re-run as a test.
